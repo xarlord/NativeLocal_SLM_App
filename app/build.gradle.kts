@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.nativelocal_slm_app"
-        minSdk = 24
+        minSdk = 33
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -76,7 +76,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
 
     sourceDirectories.setFrom(files("${project.projectDir}/src/main/java"))
     classDirectories.setFrom(files("${project.buildDir}/intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes"))
-    executionData.setFrom(files("${project.buildDir}/jacoco/testDebugUnitTest.exec"))
+    executionData.setFrom(files("${project.buildDir}/outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"))
 
     reports {
         xml.required.set(true)
@@ -132,7 +132,7 @@ tasks.register<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
 
     sourceDirectories.setFrom(files("${project.projectDir}/src/main/java"))
     classDirectories.setFrom(files("${project.buildDir}/intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes"))
-    executionData.setFrom(files("${project.buildDir}/jacoco/testDebugUnitTest.exec"))
+    executionData.setFrom(files("${project.buildDir}/outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"))
 
     violationRules {
         rule {
@@ -193,6 +193,9 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
+    testImplementation("androidx.test:core:1.5.0")
+    testImplementation("androidx.test.ext:junit:1.1.5")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -204,6 +207,7 @@ dependencies {
     androidTestImplementation("androidx.test:rules:1.5.0")
     androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
     androidTestImplementation(libs.mockk)
+    androidTestImplementation("io.mockk:mockk-android:1.13.9")
     androidTestImplementation(libs.kotlinx.coroutines.test)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
