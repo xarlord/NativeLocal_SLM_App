@@ -1,0 +1,13 @@
+{
+  "name": "Fire Hair",
+  "category": "hair",
+  "author": "NativeLocal SLM App",
+  "version": "1.0",
+  "description": "Fiery red and orange gradient hair effect",
+  "tags": ["fire", "flames", "red", "orange", "gradient"],
+  "assets": {
+    "hair_overlay": "hair_overlay.png"
+  },
+  "blend_mode": "screen",
+  "default_intensity": 0.8
+}

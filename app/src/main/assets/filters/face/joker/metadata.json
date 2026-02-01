@@ -1,0 +1,14 @@
+{
+  "name": "Joker",
+  "category": "face",
+  "author": "NativeLocal SLM App",
+  "version": "1.0",
+  "description": "The Joker face paint with green hair, white skin, and red smile",
+  "tags": ["villain", "dc", "clown", "makeup"],
+  "assets": {
+    "mask": "mask.png",
+    "eyes": "eyes.png"
+  },
+  "blend_mode": "normal",
+  "default_intensity": 1.0
+}

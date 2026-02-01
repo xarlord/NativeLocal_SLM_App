@@ -1,0 +1,13 @@
+{
+  "name": "Neon Glow",
+  "category": "hair",
+  "author": "NativeLocal SLM App",
+  "version": "1.0",
+  "description": "Vibrant neon pink hair with glow effect",
+  "tags": ["neon", "pink", "glow", "cyberpunk"],
+  "assets": {
+    "hair_overlay": "hair_overlay.png"
+  },
+  "blend_mode": "screen",
+  "default_intensity": 0.9
+}

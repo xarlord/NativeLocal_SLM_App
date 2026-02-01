@@ -1,0 +1,13 @@
+{
+  "name": "Punk Mohawk",
+  "category": "hair",
+  "author": "NativeLocal SLM App",
+  "version": "1.0",
+  "description": "Classic punk rock mohawk style",
+  "tags": ["punk", "mohawk", "red", "rock"],
+  "assets": {
+    "hair_overlay": "hair_overlay.png"
+  },
+  "blend_mode": "normal",
+  "default_intensity": 1.0
+}

@@ -1,0 +1,14 @@
+{
+  "name": "Batman",
+  "category": "face",
+  "author": "NativeLocal SLM App",
+  "version": "1.0",
+  "description": "Classic Batman face mask with dark cowl and pointed ears",
+  "tags": ["superhero", "dc", "mask", "dark"],
+  "assets": {
+    "mask": "mask.png",
+    "eyes": "eyes.png"
+  },
+  "blend_mode": "normal",
+  "default_intensity": 1.0
+}
