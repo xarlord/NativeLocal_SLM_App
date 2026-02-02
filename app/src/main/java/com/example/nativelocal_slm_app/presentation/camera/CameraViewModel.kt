@@ -65,9 +65,12 @@ class CameraViewModel(
 
     /**
      * Stop the camera stream.
+     * MEDIUM PRIORITY FIX #5: Clears reusable buffers to free memory.
      */
     fun stopCamera() {
         _cameraState.value = CameraState.Inactive
+        // Clear reusable buffers to free memory when camera stops
+        com.example.nativelocal_slm_app.util.ImageConversionUtils.clearReusableBuffers()
     }
 
     /**
@@ -195,6 +198,7 @@ class CameraViewModel(
 
     /**
      * CRITICAL FIX #3: Clean up bitmap resources to prevent memory leaks.
+     * MEDIUM PRIORITY FIX #5: Clear reusable buffers.
      * Called when ViewModel is cleared.
      */
     override fun onCleared() {
@@ -204,6 +208,8 @@ class CameraViewModel(
         latestOriginalBitmap = null
         _processedBitmap.value?.recycle()
         _processedBitmap.value = null
+        // Clear reusable buffers
+        com.example.nativelocal_slm_app.util.ImageConversionUtils.clearReusableBuffers()
     }
 }
 
