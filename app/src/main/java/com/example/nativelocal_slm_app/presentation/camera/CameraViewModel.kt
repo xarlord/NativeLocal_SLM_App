@@ -12,13 +12,13 @@ import com.example.nativelocal_slm_app.domain.model.PredefinedFilters
 import com.example.nativelocal_slm_app.domain.model.HairAnalysisResult
 import com.example.nativelocal_slm_app.domain.usecase.ApplyFilterUseCase
 import com.example.nativelocal_slm_app.domain.usecase.ProcessCameraFrameUseCase
+import com.example.nativelocal_slm_app.util.ImageConversionUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -65,6 +65,7 @@ class CameraViewModel(
      * Process a new camera frame.
      * CRITICAL FIX #2: Moved blocking operations to Dispatchers.Default
      * to prevent UI jank and frame drops.
+     * HIGH PRIORITY FIX #1: Now uses ImageConversionUtils for centralized conversion logic.
      */
     fun onCameraFrame(imageProxy: ImageProxy) {
         if (!isProcessing.compareAndSet(false, true)) {
@@ -75,7 +76,14 @@ class CameraViewModel(
         viewModelScope.launch(Dispatchers.Default) {
             try {
                 // Convert to bitmap for processing (BLOCKING - runs on Default dispatcher)
-                val bitmap = imageProxyToBitmap(imageProxy)
+                // HIGH PRIORITY FIX #1: Use centralized utility
+                val bitmap = ImageConversionUtils.imageProxyToBitmapOrNull(imageProxy)
+
+                if (bitmap == null) {
+                    imageProxy.close()
+                    isProcessing.set(false)
+                    return@launch
+                }
 
                 // Analyze the frame
                 val result = processFrameUseCase(imageProxy)
@@ -137,18 +145,6 @@ class CameraViewModel(
      */
     fun clearCapturedPhoto() {
         _capturedPhoto.value = null
-    }
-
-    /**
-     * Convert ImageProxy to Bitmap.
-     */
-    private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap {
-        val buffer = imageProxy.planes[0].buffer
-        val bytes = ByteArray(buffer.remaining())
-        buffer.get(bytes)
-
-        val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        return bitmap
     }
 
     /**
