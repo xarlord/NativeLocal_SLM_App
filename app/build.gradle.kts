@@ -148,6 +148,11 @@ tasks.named("check") {
     dependsOn("jacocoTestCoverageVerification")
 }
 
+// Increase test JVM heap size to prevent OutOfMemoryError during full test suite runs
+tasks.withType<Test> {
+    jvmArgs("-Xmx768m", "-Xms256m")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

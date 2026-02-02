@@ -43,7 +43,7 @@ class ProcessCameraFrameUseCaseTest {
     }
 
     @Test
-    fun `invoke returns null when image is null`() = runTest {
+    fun invoke_returnsNull_whenImageIsNull() = runTest {
         val imageProxy = mockk<ImageProxy>()
         every { imageProxy.image } returns null
 
@@ -53,7 +53,7 @@ class ProcessCameraFrameUseCaseTest {
     }
 
     @Test
-    fun `invoke returns null when repository throws exception`() = runTest {
+    fun invoke_returnsNull_whenRepositoryThrowsException() = runTest {
         val imageProxy = mockk<ImageProxy>()
         every { imageProxy.image } returns mockk<Image>()
         every { imageProxy.width } returns 100
@@ -67,7 +67,7 @@ class ProcessCameraFrameUseCaseTest {
     }
 
     @Test
-    fun `invoke closes ImageProxy even on exception`() = runTest {
+    fun invoke_closesImageProxy_evenOnException() = runTest {
         val imageProxy = mockk<ImageProxy>(relaxed = true)
         every { imageProxy.image } returns mockk<Image>()
         every { imageProxy.width } returns 100

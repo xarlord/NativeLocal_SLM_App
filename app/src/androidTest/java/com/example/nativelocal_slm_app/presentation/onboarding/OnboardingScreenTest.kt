@@ -1,5 +1,6 @@
 package com.example.nativelocal_slm_app.presentation.onboarding
 
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.nativelocal_slm_app.presentation.onboarding.OnboardingPage

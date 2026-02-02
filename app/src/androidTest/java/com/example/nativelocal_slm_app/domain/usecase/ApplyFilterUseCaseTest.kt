@@ -45,7 +45,7 @@ class ApplyFilterUseCaseTest {
     }
 
     @Test
-    fun `invoke loads filter assets for FACE filter`() = runTest {
+    fun invoke_loadsFilterAssets_forFaceFilter() = runTest {
         val originalBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
         val filter = FilterEffect(
             id = "test_face_filter",
@@ -67,7 +67,7 @@ class ApplyFilterUseCaseTest {
     }
 
     @Test
-    fun `invoke loads filter assets for HAIR filter`() = runTest {
+    fun invoke_loadsFilterAssets_forHairFilter() = runTest {
         val originalBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
         val filter = FilterEffect(
             id = "test_hair_filter",
@@ -85,7 +85,7 @@ class ApplyFilterUseCaseTest {
     }
 
     @Test
-    fun `invoke loads filter assets for COMBO filter`() = runTest {
+    fun invoke_loadsFilterAssets_forComboFilter() = runTest {
         val originalBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
         val filter = FilterEffect(
             id = "test_combo_filter",
@@ -103,7 +103,7 @@ class ApplyFilterUseCaseTest {
     }
 
     @Test
-    fun `invoke handles null assets gracefully`() = runTest {
+    fun invoke_handlesNullAssets_gracefully() = runTest {
         val originalBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
         val filter = FilterEffect(
             id = "test_filter",

@@ -60,12 +60,24 @@ class FilterAssetsRepository(
 
     /**
      * Find the asset path for a filter by searching all filter categories.
+     * Uses direct file open check instead of list() for better Robolectric compatibility.
+     * Also tries listing as fallback for compatibility with different test setups.
      */
     private fun findFilterPath(filterId: String): String? {
         val categories = listOf("face", "hair", "combo")
 
         for (category in categories) {
             val path = "filters/$category/$filterId"
+
+            // Method 1: Try to open metadata.json (works in many cases)
+            try {
+                context.assets.open("$path/metadata.json").close()
+                return path
+            } catch (e: IOException) {
+                // Try method 2
+            }
+
+            // Method 2: Try list() as fallback (works in some Robolectric versions)
             try {
                 val files = context.assets.list(path)
                 if (files != null && files.isNotEmpty()) {
