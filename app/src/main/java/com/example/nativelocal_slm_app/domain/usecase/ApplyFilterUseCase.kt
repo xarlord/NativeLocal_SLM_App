@@ -7,10 +7,10 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
-import com.example.nativelocal_slm_app.data.repository.FilterAssetsRepository
-import com.example.nativelocal_slm_app.data.model.FilterCategory
-import com.example.nativelocal_slm_app.data.model.FilterEffect
-import com.example.nativelocal_slm_app.data.model.PredefinedFilters
+import com.example.nativelocal_slm_app.domain.repository.FilterRepository
+import com.example.nativelocal_slm_app.domain.model.FilterCategory
+import com.example.nativelocal_slm_app.domain.model.FilterEffect
+import com.example.nativelocal_slm_app.domain.model.PredefinedFilters
 import com.example.nativelocal_slm_app.domain.model.HairAnalysisResult
 import com.example.nativelocal_slm_app.domain.repository.HairAnalysisRepository
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
  * Loads filter assets and composes them with the camera frame.
  */
 class ApplyFilterUseCase(
-    private val filterAssetsRepository: FilterAssetsRepository,
+    private val filterRepository: FilterRepository,
     private val hairAnalysisRepository: HairAnalysisRepository
 ) {
     /**
@@ -37,7 +37,7 @@ class ApplyFilterUseCase(
         val canvas = Canvas(resultBitmap)
 
         // Load filter assets
-        val assets = filterAssetsRepository.loadFilterAssets(filter.id)
+        val assets = filterRepository.loadFilterAssets(filter.id)
 
         // Apply filter based on category
         when (filter.category) {
@@ -52,7 +52,7 @@ class ApplyFilterUseCase(
     private fun applyFaceFilter(
         canvas: Canvas,
         analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.data.model.FilterAssets?,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
         filter: FilterEffect
     ) {
         val faceLandmarks = analysisResult.faceLandmarks ?: return
@@ -115,7 +115,7 @@ class ApplyFilterUseCase(
     private fun applyHairFilter(
         canvas: Canvas,
         analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.data.model.FilterAssets?,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
         filter: FilterEffect
     ) {
         val mask = analysisResult.segmentationMask ?: return
@@ -130,11 +130,11 @@ class ApplyFilterUseCase(
                 isFilterBitmap = true
                 alpha = 180
                 when (filter.blendMode) {
-                    com.example.nativelocal_slm_app.data.model.BlendMode.SCREEN ->
+                    com.example.nativelocal_slm_app.domain.model.BlendMode.SCREEN ->
                         xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                    com.example.nativelocal_slm_app.data.model.BlendMode.OVERLAY ->
+                    com.example.nativelocal_slm_app.domain.model.BlendMode.OVERLAY ->
                         xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                    com.example.nativelocal_slm_app.data.model.BlendMode.MULTIPLY ->
+                    com.example.nativelocal_slm_app.domain.model.BlendMode.MULTIPLY ->
                         xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
                     else -> xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
                 }
@@ -165,7 +165,7 @@ class ApplyFilterUseCase(
     private fun applyComboFilter(
         canvas: Canvas,
         analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.data.model.FilterAssets?,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
         filter: FilterEffect
     ) {
         // Apply both face and hair filters

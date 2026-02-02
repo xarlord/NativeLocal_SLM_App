@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import com.example.nativelocal_slm_app.data.model.SavedLook
+import com.example.nativelocal_slm_app.domain.model.SavedLook
 import com.example.nativelocal_slm_app.domain.usecase.SaveLookUseCase
 import com.example.nativelocal_slm_app.presentation.camera.CapturedPhoto
 import kotlinx.coroutines.launch

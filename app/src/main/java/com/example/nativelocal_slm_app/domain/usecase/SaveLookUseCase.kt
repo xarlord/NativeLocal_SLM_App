@@ -3,7 +3,7 @@ package com.example.nativelocal_slm_app.domain.usecase
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
-import com.example.nativelocal_slm_app.data.model.SavedLook
+import com.example.nativelocal_slm_app.domain.model.SavedLook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File

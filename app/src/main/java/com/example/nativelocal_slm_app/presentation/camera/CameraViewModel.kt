@@ -7,8 +7,8 @@ import android.graphics.YuvImage
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.nativelocal_slm_app.data.model.FilterEffect
-import com.example.nativelocal_slm_app.data.model.PredefinedFilters
+import com.example.nativelocal_slm_app.domain.model.FilterEffect
+import com.example.nativelocal_slm_app.domain.model.PredefinedFilters
 import com.example.nativelocal_slm_app.domain.model.HairAnalysisResult
 import com.example.nativelocal_slm_app.domain.usecase.ApplyFilterUseCase
 import com.example.nativelocal_slm_app.domain.usecase.ProcessCameraFrameUseCase

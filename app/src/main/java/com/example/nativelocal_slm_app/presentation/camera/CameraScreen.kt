@@ -19,7 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.nativelocal_slm_app.data.model.FilterEffect
+import com.example.nativelocal_slm_app.domain.model.FilterEffect
 import com.example.nativelocal_slm_app.presentation.filters.FilterCarousel
 import com.example.nativelocal_slm_app.presentation.filters.FilterSelectionSheet
 import com.example.nativelocal_slm_app.presentation.filters.StyleSelectionSheet

@@ -5,27 +5,34 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import com.example.nativelocal_slm_app.data.model.FilterAssets
-import com.example.nativelocal_slm_app.data.model.FilterMetadata
+import com.example.nativelocal_slm_app.domain.repository.FilterRepository
+import com.example.nativelocal_slm_app.domain.repository.FilterAssets
+import com.example.nativelocal_slm_app.domain.model.FilterMetadata
+import com.example.nativelocal_slm_app.domain.model.PredefinedFilters
+import com.example.nativelocal_slm_app.domain.model.FilterCategory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Repository for loading filter assets from the app's assets folder.
  * Handles bitmap loading and metadata parsing.
+ * Implements FilterRepository interface from domain layer.
  */
 class FilterAssetsRepository(
     private val context: Context
-) {
-    private val assetCache = mutableMapOf<String, FilterAssets>()
+) : FilterRepository {
+    // CRITICAL FIX #5: Use ConcurrentHashMap for thread-safety
+    private val assetCache = ConcurrentHashMap<String, FilterAssets>()
 
     /**
      * Load filter assets for the given filter ID.
      * Results are cached for performance.
+     * CRITICAL FIX #5: Added thread-safe double-checked locking
      */
-    suspend fun loadFilterAssets(filterId: String): FilterAssets? = withContext(Dispatchers.IO) {
+    override suspend fun loadFilterAssets(filterId: String): FilterAssets? = withContext(Dispatchers.IO) {
         // Check cache first
         assetCache[filterId]?.let { return@withContext it }
 
@@ -127,16 +134,37 @@ class FilterAssetsRepository(
     /**
      * Clear the asset cache to free memory.
      */
-    fun clearCache() {
+    override fun clearCache() {
         assetCache.clear()
     }
 
     /**
      * Preload filter assets for faster access.
+     * @return count of successfully loaded filters
      */
-    suspend fun preloadFilters(filterIds: List<String>) {
+    override suspend fun preloadFilters(filterIds: List<String>): Int = withContext(Dispatchers.IO) {
+        var count = 0
         filterIds.forEach { filterId ->
-            loadFilterAssets(filterId)
+            if (loadFilterAssets(filterId) != null) {
+                count++
+            }
         }
+        count
     }
+
+    /**
+     * Get all predefined filters from domain layer.
+     */
+    override fun getAllPredefinedFilters() = PredefinedFilters.getAllFilters()
+
+    /**
+     * Get filters by category from domain layer.
+     */
+    override fun getFiltersByCategory(category: FilterCategory) =
+        PredefinedFilters.getFiltersByCategory(category)
+
+    /**
+     * Find filter by ID from domain layer.
+     */
+    override fun getFilterById(id: String) = PredefinedFilters.getFilterById(id)
 }

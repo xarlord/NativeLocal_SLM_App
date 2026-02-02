@@ -21,9 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.nativelocal_slm_app.data.model.FilterCategory
-import com.example.nativelocal_slm_app.data.model.FilterEffect
-import com.example.nativelocal_slm_app.data.model.PredefinedFilters
+import com.example.nativelocal_slm_app.domain.model.FilterCategory
+import com.example.nativelocal_slm_app.domain.model.FilterEffect
+import com.example.nativelocal_slm_app.domain.model.PredefinedFilters
 
 /**
  * Horizontal carousel of filter thumbnails for quick selection.

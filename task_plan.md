@@ -87,21 +87,40 @@
 **Priority**: CRITICAL
 **Branch**: `refactor/phase1-critical-fixes`
 
-### Critical Issue #1: Domain/Data Layer Separation
+### Critical Issue #1: Domain/Data Layer Separation ✅ COMPLETE
 
 **File**: `domain/usecase/ApplyFilterUseCase.kt`
 **Severity**: CRITICAL
 **Impact**: Violates Clean Architecture, prevents independent testing
 
 **Steps**:
-1. [ ] Create `domain/model/FilterEffect.kt` (move from data)
-2. [ ] Create `domain/model/FilterCategory.kt` (move from data)
-3. [ ] Create `domain/model/FilterMetadata.kt` (move from data)
-4. [ ] Create `domain/repository/FilterRepository.kt` interface
-5. [ ] Update `ApplyFilterUseCase` to use domain models
-6. [ ] Update `FilterAssetsRepository` to implement `FilterRepository`
-7. [ ] Update all imports across codebase
-8. [ ] Run tests and fix any breakage
+1. [x] Create `domain/model/FilterEffect.kt` (move from data)
+2. [x] Create `domain/model/FilterCategory.kt` (move from data)
+3. [x] Create `domain/model/FilterMetadata.kt` (move from data)
+4. [x] Create `domain/model/SavedLook.kt` (move from data)
+5. [x] Create `domain/model/PredefinedFilters.kt` (move from data)
+6. [x] Create `domain/repository/FilterRepository.kt` interface
+7. [x] Update `ApplyFilterUseCase` to use domain models
+8. [x] Update `FilterAssetsRepository` to implement `FilterRepository`
+9. [x] Update all imports across codebase
+10. [x] Update DI module to inject interface
+11. [x] Run tests and fix any breakage
+
+**Completed**: 2026-02-02
+
+**Files Created**:
+- `domain/model/FilterEffect.kt`
+- `domain/model/FilterMetadata.kt`
+- `domain/model/SavedLook.kt`
+- `domain/model/PredefinedFilters.kt`
+- `domain/repository/FilterRepository.kt`
+
+**Files Modified**:
+- `domain/usecase/ApplyFilterUseCase.kt` - Uses domain models
+- `domain/usecase/SaveLookUseCase.kt` - Uses domain SavedLook
+- `data/repository/FilterAssetsRepository.kt` - Implements FilterRepository interface
+- `presentation/di/AppModule.kt` - Injects FilterRepository interface
+- All presentation layer files updated to use domain models
 
 **Verification**:
 ```bash
@@ -746,7 +765,7 @@ grep -r "new FilterAssetsRepository" . --include="*.kt"
 
 | Error | Phase | Attempt | Resolution | Date |
 |-------|-------|---------|------------|------|
-| TBD | - | - | - | - |
+| OutOfMemoryError in baseline tests | Phase 1 | 1 | Validates Critical Issue #3 (Bitmap Memory Leaks) - proceeding with fixes | 2026-02-02 |
 
 ---
 

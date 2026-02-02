@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.example.nativelocal_slm_app.data.model.SavedLook
+import com.example.nativelocal_slm_app.domain.model.SavedLook
 
 /**
  * Grid view of saved looks for history and management.
