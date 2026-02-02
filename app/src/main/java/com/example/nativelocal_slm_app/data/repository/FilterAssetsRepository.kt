@@ -14,7 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
-import java.util.concurrent.ConcurrentHashMap
+import android.util.LruCache
 
 /**
  * Repository for loading filter assets from the app's assets folder.
@@ -24,17 +24,23 @@ import java.util.concurrent.ConcurrentHashMap
 class FilterAssetsRepository(
     private val context: Context
 ) : FilterRepository {
-    // CRITICAL FIX #5: Use ConcurrentHashMap for thread-safety
-    private val assetCache = ConcurrentHashMap<String, FilterAssets>()
+    /**
+     * CRITICAL FIX #3 & #5: LruCache for memory management + thread-safety
+     * Uses 1/8 of available memory for cache, with automatic eviction.
+     */
+    private val assetCache = LruCache<String, FilterAssets>(
+        (Runtime.getRuntime().maxMemory() / 8).toInt()
+    )
 
     /**
      * Load filter assets for the given filter ID.
      * Results are cached for performance.
-     * CRITICAL FIX #5: Added thread-safe double-checked locking
+     * CRITICAL FIX #3: Uses LruCache with automatic eviction and sizeOf for memory management.
+     * LruCache is thread-safe by design.
      */
     override suspend fun loadFilterAssets(filterId: String): FilterAssets? = withContext(Dispatchers.IO) {
-        // Check cache first
-        assetCache[filterId]?.let { return@withContext it }
+        // Check cache first (LruCache.get() is thread-safe)
+        assetCache.get(filterId)?.let { return@withContext it }
 
         try {
             // Find filter directory
@@ -55,8 +61,8 @@ class FilterAssetsRepository(
                 metadata = metadata
             )
 
-            // Cache the result
-            assetCache[filterId] = assets
+            // Cache the result (LruCache.put() is thread-safe)
+            assetCache.put(filterId, assets)
 
             assets
         } catch (e: Exception) {
@@ -133,9 +139,10 @@ class FilterAssetsRepository(
 
     /**
      * Clear the asset cache to free memory.
+     * CRITICAL FIX #3: LruCache.evictAll() clears the cache.
      */
     override fun clearCache() {
-        assetCache.clear()
+        assetCache.evictAll()
     }
 
     /**

@@ -150,6 +150,19 @@ class CameraViewModel(
         val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         return bitmap
     }
+
+    /**
+     * CRITICAL FIX #3: Clean up bitmap resources to prevent memory leaks.
+     * Called when ViewModel is cleared.
+     */
+    override fun onCleared() {
+        super.onCleared()
+        // Recycle bitmaps to free memory
+        latestOriginalBitmap?.recycle()
+        latestOriginalBitmap = null
+        _processedBitmap.value?.recycle()
+        _processedBitmap.value = null
+    }
 }
 
 /**
