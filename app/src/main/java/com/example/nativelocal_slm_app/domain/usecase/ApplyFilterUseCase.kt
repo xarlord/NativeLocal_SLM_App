@@ -12,6 +12,7 @@ import com.example.nativelocal_slm_app.domain.model.FilterCategory
 import com.example.nativelocal_slm_app.domain.model.FilterEffect
 import com.example.nativelocal_slm_app.domain.model.PredefinedFilters
 import com.example.nativelocal_slm_app.domain.model.HairAnalysisResult
+import com.example.nativelocal_slm_app.domain.model.DomainError
 import com.example.nativelocal_slm_app.domain.repository.HairAnalysisRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,6 +20,10 @@ import kotlinx.coroutines.withContext
 /**
  * Use case for applying filter effects to camera frames.
  * Loads filter assets and composes them with the camera frame.
+ *
+ * MEDIUM PRIORITY FIX #3: Added Result<> wrapper for proper error handling.
+ * BEFORE: Returned Bitmap directly, silently failing on errors
+ * AFTER: Returns Result<Bitmap> with typed error information
  */
 class ApplyFilterUseCase(
     private val filterRepository: FilterRepository,
@@ -26,27 +31,73 @@ class ApplyFilterUseCase(
 ) {
     /**
      * Apply a filter effect to the original image.
+     *
+     * @return Result<Bitmap> - Success with filtered image or Failure with error
      */
     suspend operator fun invoke(
         originalImage: Bitmap,
         filter: FilterEffect,
         analysisResult: HairAnalysisResult
-    ): Bitmap = withContext(Dispatchers.Default) {
-        // Create a mutable copy of the original image
-        val resultBitmap = originalImage.copy(Bitmap.Config.ARGB_8888, true)
-        val canvas = Canvas(resultBitmap)
+    ): Result<Bitmap> = withContext(Dispatchers.Default) {
+        try {
+            // Validate inputs
+            if (originalImage.isRecycled) {
+                return@withContext Result.failure(
+                    DomainError.FilterApplicationError(
+                        message = "Original image is recycled",
+                        cause = null
+                    )
+                )
+            }
 
-        // Load filter assets
-        val assets = filterRepository.loadFilterAssets(filter.id)
+            // Create a mutable copy of the original image
+            val resultBitmap = originalImage.copy(Bitmap.Config.ARGB_8888, true)
+            val canvas = Canvas(resultBitmap)
 
-        // Apply filter based on category
-        when (filter.category) {
-            FilterCategory.FACE -> applyFaceFilter(canvas, analysisResult, assets, filter)
-            FilterCategory.HAIR -> applyHairFilter(canvas, analysisResult, assets, filter)
-            FilterCategory.COMBO -> applyComboFilter(canvas, analysisResult, assets, filter)
+            // Load filter assets
+            val assets = filterRepository.loadFilterAssets(filter.id)
+            if (assets == null) {
+                return@withContext Result.failure(
+                    DomainError.FilterLoadError(
+                        filterId = filter.id,
+                        message = "Failed to load filter assets for '${filter.name}'",
+                        cause = null
+                    )
+                )
+            }
+
+            // Apply filter based on category
+            try {
+                when (filter.category) {
+                    FilterCategory.FACE -> applyFaceFilter(canvas, analysisResult, assets, filter)
+                    FilterCategory.HAIR -> applyHairFilter(canvas, analysisResult, assets, filter)
+                    FilterCategory.COMBO -> applyComboFilter(canvas, analysisResult, assets, filter)
+                }
+            } catch (e: Exception) {
+                return@withContext Result.failure(
+                    DomainError.FilterApplicationError(
+                        message = "Failed to apply ${filter.category} filter '${filter.name}': ${e.message}",
+                        cause = e
+                    )
+                )
+            }
+
+            Result.success(resultBitmap)
+        } catch (e: OutOfMemoryError) {
+            Result.failure(
+                DomainError.FilterApplicationError(
+                    message = "Out of memory while applying filter",
+                    cause = e
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(
+                DomainError.FilterApplicationError(
+                    message = "Unexpected error applying filter: ${e.message}",
+                    cause = e
+                )
+            )
         }
-
-        resultBitmap
     }
 
     /**
@@ -56,20 +107,20 @@ class ApplyFilterUseCase(
     private fun applyFaceFilter(
         canvas: Canvas,
         analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets,
         filter: FilterEffect
     ) {
         val faceLandmarks = analysisResult.faceLandmarks ?: return
 
         // Apply mask overlay
-        assets?.maskOverlay?.let { maskBitmap ->
+        assets.maskOverlay?.let { maskBitmap ->
             val scaledMask = scaleMaskForFace(maskBitmap, faceLandmarks.boundingBox)
             val position = calculateMaskPosition(scaledMask, faceLandmarks.boundingBox)
             drawMaskOnCanvas(canvas, scaledMask, position)
         }
 
         // Apply eye makeup
-        assets?.eyeOverlay?.let { eyeBitmap ->
+        assets.eyeOverlay?.let { eyeBitmap ->
             applyEyeMakeup(canvas, eyeBitmap, faceLandmarks)
         }
     }
@@ -177,7 +228,7 @@ class ApplyFilterUseCase(
     private fun applyHairFilter(
         canvas: Canvas,
         analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets,
         filter: FilterEffect
     ) {
         val mask = analysisResult.segmentationMask ?: return
@@ -187,7 +238,7 @@ class ApplyFilterUseCase(
         val tempCanvas = Canvas(tempBitmap)
 
         // Draw hair overlay with blend mode
-        assets?.hairOverlay?.let { hairOverlay ->
+        assets.hairOverlay?.let { hairOverlay ->
             val paint = createHairPaint(filter.blendMode)
             val scaledOverlay = Bitmap.createScaledBitmap(hairOverlay, canvas.width, canvas.height, true)
             tempCanvas.drawBitmap(scaledOverlay, 0f, 0f, paint)
@@ -244,10 +295,13 @@ class ApplyFilterUseCase(
         canvas.drawBitmap(overlayBitmap, 0f, 0f, compositePaint)
     }
 
+    /**
+     * Apply combo filter (face + hair).
+     */
     private fun applyComboFilter(
         canvas: Canvas,
         analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets,
         filter: FilterEffect
     ) {
         // Apply both face and hair filters

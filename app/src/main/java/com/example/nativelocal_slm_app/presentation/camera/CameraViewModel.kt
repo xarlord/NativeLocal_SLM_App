@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.nativelocal_slm_app.domain.model.FilterEffect
 import com.example.nativelocal_slm_app.domain.model.PredefinedFilters
 import com.example.nativelocal_slm_app.domain.model.HairAnalysisResult
+import com.example.nativelocal_slm_app.domain.model.DomainError
 import com.example.nativelocal_slm_app.domain.usecase.ApplyFilterUseCase
 import com.example.nativelocal_slm_app.domain.usecase.ProcessCameraFrameUseCase
 import com.example.nativelocal_slm_app.util.ImageConversionUtils
@@ -23,6 +24,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * ViewModel for managing camera state and processing.
+ *
+ * MEDIUM PRIORITY FIX #3: Updated to handle Result<> wrapper from use cases.
+ * BEFORE: Ignored errors, used nullable return types
+ * AFTER: Properly handles Success/Failure with typed error information
  */
 class CameraViewModel(
     private val processFrameUseCase: ProcessCameraFrameUseCase,
@@ -43,6 +48,10 @@ class CameraViewModel(
 
     private val _capturedPhoto = MutableStateFlow<CapturedPhoto?>(null)
     val capturedPhoto: StateFlow<CapturedPhoto?> = _capturedPhoto.asStateFlow()
+
+    // MEDIUM PRIORITY FIX #3: Added error state for UI feedback
+    private val _error = MutableStateFlow<DomainError?>(null)
+    val error: StateFlow<DomainError?> = _error.asStateFlow()
 
     private val isProcessing = AtomicBoolean(false)
     private var latestOriginalBitmap: Bitmap? = null
@@ -66,6 +75,7 @@ class CameraViewModel(
      * CRITICAL FIX #2: Moved blocking operations to Dispatchers.Default
      * to prevent UI jank and frame drops.
      * HIGH PRIORITY FIX #1: Now uses ImageConversionUtils for centralized conversion logic.
+     * MEDIUM PRIORITY FIX #3: Handles Result<> wrapper with proper error handling
      */
     fun onCameraFrame(imageProxy: ImageProxy) {
         if (!isProcessing.compareAndSet(false, true)) {
@@ -85,30 +95,55 @@ class CameraViewModel(
                     return@launch
                 }
 
-                // Analyze the frame
-                val result = processFrameUseCase(imageProxy)
+                // MEDIUM PRIORITY FIX #3: Handle Result<HairAnalysisResult>
+                when (val analysisResult = processFrameUseCase(imageProxy)) {
+                    is Result.Success -> {
+                        // Apply filter if one is selected
+                        val filteredBitmap = if (_selectedFilter.value != null) {
+                            // MEDIUM PRIORITY FIX #3: Handle Result<Bitmap>
+                            when (val filterResult = applyFilterUseCase.invoke(
+                                bitmap,
+                                _selectedFilter.value!!,
+                                analysisResult.value
+                            )) {
+                                is Result.Success -> filterResult.value
+                                is Result.Failure -> {
+                                    // Log filter error but show original bitmap
+                                    _error.value = filterResult.exceptionOrNull() as? DomainError
+                                    bitmap
+                                }
+                            }
+                        } else {
+                            bitmap
+                        }
 
-                // Apply filter if one is selected
-                val filteredBitmap = if (result != null && _selectedFilter.value != null) {
-                    applyFilterUseCase.invoke(
-                        bitmap,
-                        _selectedFilter.value!!,
-                        result
-                    )
-                } else {
-                    bitmap
-                }
-
-                // Switch to Main dispatcher for UI updates
-                withContext(Dispatchers.Main) {
-                    latestOriginalBitmap = bitmap
-                    result?.let {
-                        _hairAnalysisResult.value = it
+                        // Switch to Main dispatcher for UI updates
+                        withContext(Dispatchers.Main) {
+                            latestOriginalBitmap = bitmap
+                            _hairAnalysisResult.value = analysisResult.value
+                            _processedBitmap.value = filteredBitmap
+                            _cameraState.value = CameraState.Active
+                        }
                     }
-                    _processedBitmap.value = filteredBitmap
+                    is Result.Failure -> {
+                        // MEDIUM PRIORITY FIX #3: Handle analysis errors
+                        val error = analysisResult.exceptionOrNull() as? DomainError
+                        withContext(Dispatchers.Main) {
+                            _error.value = error
+                            _cameraState.value = CameraState.Error(error?.getUserMessage() ?: "Analysis failed")
+                            // Still show original bitmap even if analysis failed
+                            latestOriginalBitmap = bitmap
+                            _processedBitmap.value = bitmap
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // Catch unexpected errors
+                val error = DomainError.UnknownError("Camera frame processing failed", e)
+                withContext(Dispatchers.Main) {
+                    _error.value = error
+                    _cameraState.value = CameraState.Error(error.getUserMessage())
+                }
             } finally {
                 imageProxy.close()
                 isProcessing.set(false)
@@ -148,6 +183,17 @@ class CameraViewModel(
     }
 
     /**
+     * Clear the current error state.
+     * MEDIUM PRIORITY FIX #3: Added to allow UI to dismiss error messages.
+     */
+    fun clearError() {
+        _error.value = null
+        if (_cameraState.value is CameraState.Error) {
+            _cameraState.value = CameraState.Active
+        }
+    }
+
+    /**
      * CRITICAL FIX #3: Clean up bitmap resources to prevent memory leaks.
      * Called when ViewModel is cleared.
      */
@@ -163,12 +209,13 @@ class CameraViewModel(
 
 /**
  * Sealed class representing camera state.
+ * MEDIUM PRIORITY FIX #3: Added Error state with message.
  */
 sealed class CameraState {
     object Initializing : CameraState()
     object Active : CameraState()
     object Inactive : CameraState()
-    object Error : CameraState()
+    data class Error(val message: String) : CameraState()
 }
 
 /**
