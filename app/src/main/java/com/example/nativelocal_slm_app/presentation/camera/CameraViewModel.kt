@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -61,6 +63,8 @@ class CameraViewModel(
 
     /**
      * Process a new camera frame.
+     * CRITICAL FIX #2: Moved blocking operations to Dispatchers.Default
+     * to prevent UI jank and frame drops.
      */
     fun onCameraFrame(imageProxy: ImageProxy) {
         if (!isProcessing.compareAndSet(false, true)) {
@@ -68,28 +72,32 @@ class CameraViewModel(
             return
         }
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try {
-                // Convert to bitmap for processing
+                // Convert to bitmap for processing (BLOCKING - runs on Default dispatcher)
                 val bitmap = imageProxyToBitmap(imageProxy)
-                latestOriginalBitmap = bitmap
 
                 // Analyze the frame
                 val result = processFrameUseCase(imageProxy)
-                result?.let {
-                    _hairAnalysisResult.value = it
-                }
 
                 // Apply filter if one is selected
-                if (result != null && _selectedFilter.value != null) {
-                    val filteredBitmap = applyFilterUseCase.invoke(
+                val filteredBitmap = if (result != null && _selectedFilter.value != null) {
+                    applyFilterUseCase.invoke(
                         bitmap,
                         _selectedFilter.value!!,
                         result
                     )
-                    _processedBitmap.value = filteredBitmap
                 } else {
-                    _processedBitmap.value = bitmap
+                    bitmap
+                }
+
+                // Switch to Main dispatcher for UI updates
+                withContext(Dispatchers.Main) {
+                    latestOriginalBitmap = bitmap
+                    result?.let {
+                        _hairAnalysisResult.value = it
+                    }
+                    _processedBitmap.value = filteredBitmap
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
