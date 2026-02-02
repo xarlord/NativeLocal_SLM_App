@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 NativeLocal_SLM_App is a hair analysis and filter Android application built with Jetpack Compose using Kotlin. The app uses MediaPipe for real-time hair segmentation and face landmark detection to provide virtual hair color/style try-on, hair analysis with recommendations, and real-time filter effects.
 
 - **Package**: `com.example.nativelocal_slm_app`
-- **Minimum SDK**: 24 (Android 7.0)
+- **Minimum SDK**: 33 (Android 13)
 - **Target SDK**: 36
 - **Compile SDK**: 36
 - **Architecture**: MVI + Use Cases with clean architecture layers

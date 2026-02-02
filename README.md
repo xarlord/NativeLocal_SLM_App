@@ -29,7 +29,7 @@ An iOS-style hair analysis and filter application built with Jetpack Compose, us
 - Android Studio Hedgehog (2023.1.1) or later
 - JDK 11 or higher
 - Android SDK 36
-- Minimum SDK: 24 (Android 7.0)
+- Minimum SDK: 33 (Android 13)
 - Target SDK: 36 (Android 14)
 
 ## Getting Started

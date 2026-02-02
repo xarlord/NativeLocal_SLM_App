@@ -6,9 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.nativelocal_slm_app"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.nativelocal_slm_app"
