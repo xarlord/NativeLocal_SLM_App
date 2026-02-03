@@ -38,4 +38,11 @@ data class SavedLook(
             PredefinedFilters.getFilterById(filterId)?.name ?: filterId
         }
     }
+
+    /**
+     * Returns a comma-separated string of applied filter names.
+     */
+    fun getAppliedFilterNames(): String {
+        return getFilterNames().joinToString(", ")
+    }
 }

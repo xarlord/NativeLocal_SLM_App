@@ -7,8 +7,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * ViewModel for managing onboarding state.
@@ -20,49 +18,31 @@ class OnboardingViewModel : ViewModel() {
 
     /**
      * Check if onboarding has been completed.
-     * HIGH PRIORITY FIX #5: Moved disk I/O to background thread to prevent blocking main thread.
      */
     fun checkOnboardingStatus(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val completed = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
-
-            // Switch to Main dispatcher for UI update
-            withContext(Dispatchers.Main) {
-                _hasCompletedOnboarding.value = completed
-            }
-        }
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        _hasCompletedOnboarding.value = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
     }
 
     /**
      * Mark onboarding as complete.
-     * HIGH PRIORITY FIX #5: Explicitly use Dispatchers.IO for disk I/O.
      */
     fun completeOnboarding(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, true).apply()
-
-            // Switch to Main dispatcher for UI update
-            withContext(Dispatchers.Main) {
-                _hasCompletedOnboarding.value = true
-            }
+            _hasCompletedOnboarding.value = true
         }
     }
 
     /**
      * Reset onboarding (for testing purposes).
-     * HIGH PRIORITY FIX #5: Explicitly use Dispatchers.IO for disk I/O.
      */
     fun resetOnboarding(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().remove(KEY_ONBOARDING_COMPLETE).apply()
-
-            // Switch to Main dispatcher for UI update
-            withContext(Dispatchers.Main) {
-                _hasCompletedOnboarding.value = false
-            }
+            _hasCompletedOnboarding.value = false
         }
     }
 

@@ -3,7 +3,6 @@ package com.example.nativelocal_slm_app.presentation.di
 import com.example.nativelocal_slm_app.data.repository.FilterAssetsRepository
 import com.example.nativelocal_slm_app.data.repository.MediaPipeHairRepository
 import com.example.nativelocal_slm_app.domain.repository.HairAnalysisRepository
-import com.example.nativelocal_slm_app.domain.repository.FilterRepository
 import com.example.nativelocal_slm_app.domain.usecase.AnalyzeHairUseCase
 import com.example.nativelocal_slm_app.domain.usecase.ApplyFilterUseCase
 import com.example.nativelocal_slm_app.domain.usecase.ProcessCameraFrameUseCase
@@ -22,7 +21,7 @@ val appModule = module {
         MediaPipeHairRepository(androidContext())
     }
 
-    single<FilterRepository> {
+    single {
         FilterAssetsRepository(androidContext())
     }
 

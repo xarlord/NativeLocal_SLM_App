@@ -7,12 +7,12 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
-import com.example.nativelocal_slm_app.domain.repository.FilterRepository
+import com.example.nativelocal_slm_app.data.repository.FilterAssetsRepository
 import com.example.nativelocal_slm_app.domain.model.FilterCategory
 import com.example.nativelocal_slm_app.domain.model.FilterEffect
 import com.example.nativelocal_slm_app.domain.model.PredefinedFilters
+import com.example.nativelocal_slm_app.domain.repository.FilterAssets
 import com.example.nativelocal_slm_app.domain.model.HairAnalysisResult
-import com.example.nativelocal_slm_app.domain.model.DomainError
 import com.example.nativelocal_slm_app.domain.repository.HairAnalysisRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -20,288 +20,153 @@ import kotlinx.coroutines.withContext
 /**
  * Use case for applying filter effects to camera frames.
  * Loads filter assets and composes them with the camera frame.
- *
- * MEDIUM PRIORITY FIX #3: Added Result<> wrapper for proper error handling.
- * BEFORE: Returned Bitmap directly, silently failing on errors
- * AFTER: Returns Result<Bitmap> with typed error information
  */
 class ApplyFilterUseCase(
-    private val filterRepository: FilterRepository,
+    private val filterAssetsRepository: FilterAssetsRepository,
     private val hairAnalysisRepository: HairAnalysisRepository
 ) {
     /**
      * Apply a filter effect to the original image.
-     *
-     * @return Result<Bitmap> - Success with filtered image or Failure with error
      */
     suspend operator fun invoke(
         originalImage: Bitmap,
         filter: FilterEffect,
         analysisResult: HairAnalysisResult
-    ): Result<Bitmap> = withContext(Dispatchers.Default) {
-        try {
-            // Validate inputs
-            if (originalImage.isRecycled) {
-                return@withContext Result.failure(
-                    DomainError.FilterApplicationError(
-                        message = "Original image is recycled",
-                        cause = null
-                    )
-                )
-            }
+    ): Bitmap = withContext(Dispatchers.Default) {
+        // Create a mutable copy of the original image
+        val resultBitmap = originalImage.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(resultBitmap)
 
-            // Create a mutable copy of the original image
-            val resultBitmap = originalImage.copy(Bitmap.Config.ARGB_8888, true)
-            val canvas = Canvas(resultBitmap)
+        // Load filter assets
+        val assets = filterAssetsRepository.loadFilterAssets(filter.id)
 
-            // Load filter assets
-            val assets = filterRepository.loadFilterAssets(filter.id)
-            if (assets == null) {
-                return@withContext Result.failure(
-                    DomainError.FilterLoadError(
-                        filterId = filter.id,
-                        message = "Failed to load filter assets for '${filter.name}'",
-                        cause = null
-                    )
-                )
-            }
-
-            // Apply filter based on category
-            try {
-                when (filter.category) {
-                    FilterCategory.FACE -> applyFaceFilter(canvas, analysisResult, assets, filter)
-                    FilterCategory.HAIR -> applyHairFilter(canvas, analysisResult, assets, filter)
-                    FilterCategory.COMBO -> applyComboFilter(canvas, analysisResult, assets, filter)
-                }
-            } catch (e: Exception) {
-                return@withContext Result.failure(
-                    DomainError.FilterApplicationError(
-                        message = "Failed to apply ${filter.category} filter '${filter.name}': ${e.message}",
-                        cause = e
-                    )
-                )
-            }
-
-            Result.success(resultBitmap)
-        } catch (e: OutOfMemoryError) {
-            Result.failure(
-                DomainError.FilterApplicationError(
-                    message = "Out of memory while applying filter",
-                    cause = e
-                )
-            )
-        } catch (e: Exception) {
-            Result.failure(
-                DomainError.FilterApplicationError(
-                    message = "Unexpected error applying filter: ${e.message}",
-                    cause = e
-                )
-            )
+        // Apply filter based on category
+        when (filter.category) {
+            FilterCategory.FACE -> applyFaceFilter(canvas, analysisResult, assets, filter)
+            FilterCategory.HAIR -> applyHairFilter(canvas, analysisResult, assets, filter)
+            FilterCategory.COMBO -> applyComboFilter(canvas, analysisResult, assets, filter)
         }
+
+        resultBitmap
     }
 
-    /**
-     * Apply face filter (mask and eye makeup).
-     * HIGH PRIORITY FIX #3: Refactored into smaller, testable methods.
-     */
     private fun applyFaceFilter(
         canvas: Canvas,
         analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
         filter: FilterEffect
     ) {
         val faceLandmarks = analysisResult.faceLandmarks ?: return
 
-        // Apply mask overlay
-        assets.maskOverlay?.let { maskBitmap ->
-            val scaledMask = scaleMaskForFace(maskBitmap, faceLandmarks.boundingBox)
-            val position = calculateMaskPosition(scaledMask, faceLandmarks.boundingBox)
-            drawMaskOnCanvas(canvas, scaledMask, position)
+        // Draw mask overlay
+        assets?.maskOverlay?.let { maskBitmap ->
+            val boundingBox = faceLandmarks.boundingBox
+
+            val paint = Paint().apply {
+                isFilterBitmap = true
+                alpha = 230
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
+            }
+
+            // Scale and position mask overlay to fit face
+            val scaleFactor = (boundingBox.width * 1.4f) / maskBitmap.width
+            val scaledWidth = (maskBitmap.width * scaleFactor).toInt()
+            val scaledHeight = (maskBitmap.height * scaleFactor).toInt()
+
+            if (scaledWidth > 0 && scaledHeight > 0) {
+                val scaledMask = Bitmap.createScaledBitmap(maskBitmap, scaledWidth, scaledHeight, true)
+
+                // Position centered on face
+                val left = (boundingBox.centerX - scaledWidth / 2f).toInt()
+                val top = (boundingBox.centerY * 0.7f - scaledHeight / 2f).toInt()
+
+                canvas.drawBitmap(scaledMask, left.toFloat(), top.toFloat(), paint)
+            }
         }
 
-        // Apply eye makeup
-        assets.eyeOverlay?.let { eyeBitmap ->
-            applyEyeMakeup(canvas, eyeBitmap, faceLandmarks)
-        }
-    }
+        // Draw eye makeup overlay
+        assets?.eyeOverlay?.let { eyeBitmap ->
+            val leftEye = faceLandmarks.keyPoints[com.example.nativelocal_slm_app.domain.model.LandmarkType.LEFT_EYE]
+            val rightEye = faceLandmarks.keyPoints[com.example.nativelocal_slm_app.domain.model.LandmarkType.RIGHT_EYE]
 
-    /**
-     * Scale mask bitmap to fit face bounding box.
-     * HIGH PRIORITY FIX #3: Extracted from applyFaceFilter for testability.
-     */
-    private fun scaleMaskForFace(maskBitmap: Bitmap, boundingBox: com.example.nativelocal_slm_app.domain.model.BoundingBox): Bitmap {
-        val scaleFactor = (boundingBox.width * 1.4f) / maskBitmap.width
-        val scaledWidth = (maskBitmap.width * scaleFactor).toInt()
-        val scaledHeight = (maskBitmap.height * scaleFactor).toInt()
+            val paint = Paint().apply {
+                isFilterBitmap = true
+                alpha = 200
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
+            }
 
-        return if (scaledWidth > 0 && scaledHeight > 0) {
-            Bitmap.createScaledBitmap(maskBitmap, scaledWidth, scaledHeight, true)
-        } else {
-            maskBitmap
-        }
-    }
+            val eyeSize = (faceLandmarks.boundingBox.width * 0.15f).toInt()
 
-    /**
-     * Calculate position for mask overlay on face.
-     * HIGH PRIORITY FIX #3: Extracted from applyFaceFilter for testability.
-     */
-    private fun calculateMaskPosition(
-        maskBitmap: Bitmap,
-        boundingBox: com.example.nativelocal_slm_app.domain.model.BoundingBox
-    ): Position {
-        val left = (boundingBox.centerX - maskBitmap.width / 2f).toInt()
-        val top = (boundingBox.centerY * 0.7f - maskBitmap.height / 2f).toInt()
-        return Position(left.toFloat(), top.toFloat())
-    }
+            leftEye?.let {
+                val scaledEye = Bitmap.createScaledBitmap(eyeBitmap, eyeSize, eyeSize, true)
+                val left = (it.x - eyeSize / 2f).toInt()
+                val top = (it.y - eyeSize / 2f).toInt()
+                canvas.drawBitmap(scaledEye, left.toFloat(), top.toFloat(), paint)
+            }
 
-    /**
-     * Draw mask bitmap on canvas at specified position.
-     * HIGH PRIORITY FIX #3: Extracted from applyFaceFilter for reusability.
-     */
-    private fun drawMaskOnCanvas(canvas: Canvas, maskBitmap: Bitmap, position: Position) {
-        val paint = Paint().apply {
-            isFilterBitmap = true
-            alpha = 230
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
-        }
-        canvas.drawBitmap(maskBitmap, position.x, position.y, paint)
-    }
-
-    /**
-     * Apply eye makeup to both eyes.
-     * HIGH PRIORITY FIX #3: Extracted from applyFaceFilter for clarity.
-     */
-    private fun applyEyeMakeup(
-        canvas: Canvas,
-        eyeBitmap: Bitmap,
-        faceLandmarks: com.example.nativelocal_slm_app.domain.model.FaceLandmarksResult
-    ) {
-        val leftEye = faceLandmarks.keyPoints[com.example.nativelocal_slm_app.domain.model.LandmarkType.LEFT_EYE]
-        val rightEye = faceLandmarks.keyPoints[com.example.nativelocal_slm_app.domain.model.LandmarkType.RIGHT_EYE]
-
-        val paint = Paint().apply {
-            isFilterBitmap = true
-            alpha = 200
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
-        }
-
-        val eyeSize = (faceLandmarks.boundingBox.width * 0.15f).toInt()
-
-        // Apply to left eye
-        leftEye?.let { eyePoint ->
-            drawEyeMakeup(canvas, eyeBitmap, eyePoint, eyeSize, paint)
-        }
-
-        // Apply to right eye
-        rightEye?.let { eyePoint ->
-            drawEyeMakeup(canvas, eyeBitmap, eyePoint, eyeSize, paint)
-        }
-    }
-
-    /**
-     * Draw eye makeup at a single eye position.
-     * HIGH PRIORITY FIX #3: Extracted for reusability and testability.
-     */
-    private fun drawEyeMakeup(
-        canvas: Canvas,
-        eyeBitmap: Bitmap,
-        eyePosition: android.graphics.PointF,
-        eyeSize: Int,
-        paint: Paint
-    ) {
-        val scaledEye = Bitmap.createScaledBitmap(eyeBitmap, eyeSize, eyeSize, true)
-        val left = (eyePosition.x - eyeSize / 2f).toInt()
-        val top = (eyePosition.y - eyeSize / 2f).toInt()
-        canvas.drawBitmap(scaledEye, left.toFloat(), top.toFloat(), paint)
-    }
-
-    /**
-     * Data class for position coordinates.
-     * HIGH PRIORITY FIX #3: Added for clearer method signatures.
-     */
-    private data class Position(val x: Float, val y: Float)
-
-    /**
-     * Apply hair filter using segmentation mask.
-     * HIGH PRIORITY FIX #3: Refactored for clarity and testability.
-     */
-    private fun applyHairFilter(
-        canvas: Canvas,
-        analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets,
-        filter: FilterEffect
-    ) {
-        val mask = analysisResult.segmentationMask ?: return
-
-        // Create temporary bitmap for hair overlay
-        val tempBitmap = Bitmap.createBitmap(canvas.width, canvas.height, Bitmap.Config.ARGB_8888)
-        val tempCanvas = Canvas(tempBitmap)
-
-        // Draw hair overlay with blend mode
-        assets.hairOverlay?.let { hairOverlay ->
-            val paint = createHairPaint(filter.blendMode)
-            val scaledOverlay = Bitmap.createScaledBitmap(hairOverlay, canvas.width, canvas.height, true)
-            tempCanvas.drawBitmap(scaledOverlay, 0f, 0f, paint)
-        }
-
-        // Apply segmentation mask to limit filter to hair region
-        applySegmentationMask(tempCanvas, mask)
-
-        // Composite filtered hair onto main canvas
-        compositeHairOverlay(canvas, tempBitmap)
-    }
-
-    /**
-     * Create paint for hair overlay based on blend mode.
-     * HIGH PRIORITY FIX #3: Extracted for testability and reusability.
-     */
-    private fun createHairPaint(blendMode: com.example.nativelocal_slm_app.domain.model.BlendMode): Paint {
-        return Paint().apply {
-            isFilterBitmap = true
-            alpha = 180
-            xfermode = when (blendMode) {
-                com.example.nativelocal_slm_app.domain.model.BlendMode.SCREEN ->
-                    PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-                com.example.nativelocal_slm_app.domain.model.BlendMode.OVERLAY ->
-                    PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
-                com.example.nativelocal_slm_app.domain.model.BlendMode.MULTIPLY ->
-                    PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                else -> PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
+            rightEye?.let {
+                val scaledEye = Bitmap.createScaledBitmap(eyeBitmap, eyeSize, eyeSize, true)
+                val left = (it.x - eyeSize / 2f).toInt()
+                val top = (it.y - eyeSize / 2f).toInt()
+                canvas.drawBitmap(scaledEye, left.toFloat(), top.toFloat(), paint)
             }
         }
     }
 
-    /**
-     * Apply segmentation mask to canvas (limits effect to hair region).
-     * HIGH PRIORITY FIX #3: Extracted for clarity.
-     */
-    private fun applySegmentationMask(canvas: Canvas, mask: Bitmap) {
+    private fun applyHairFilter(
+        canvas: Canvas,
+        analysisResult: HairAnalysisResult,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
+        filter: FilterEffect
+    ) {
+        val mask = analysisResult.segmentationMask ?: return
+
+        // Create a temporary bitmap for the hair overlay
+        val tempBitmap = Bitmap.createBitmap(canvas.width, canvas.height, Bitmap.Config.ARGB_8888)
+        val tempCanvas = Canvas(tempBitmap)
+
+        // Draw hair overlay from assets
+        assets?.hairOverlay?.let { hairOverlay ->
+            val paint = Paint().apply {
+                isFilterBitmap = true
+                alpha = 180
+                when (filter.blendMode) {
+                    com.example.nativelocal_slm_app.domain.model.BlendMode.SCREEN ->
+                        xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+                    com.example.nativelocal_slm_app.domain.model.BlendMode.OVERLAY ->
+                        xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
+                    com.example.nativelocal_slm_app.domain.model.BlendMode.MULTIPLY ->
+                        xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
+                    else -> xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
+                }
+            }
+
+            // Scale overlay to match image size
+            val scaledOverlay = Bitmap.createScaledBitmap(hairOverlay, canvas.width, canvas.height, true)
+            tempCanvas.drawBitmap(scaledOverlay, 0f, 0f, paint)
+        }
+
+        // Use segmentation mask to apply filter only to hair region
         val maskPaint = Paint().apply {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
             alpha = 255
         }
-        canvas.drawBitmap(mask, 0f, 0f, maskPaint)
-    }
 
-    /**
-     * Composite hair overlay onto main canvas.
-     * HIGH PRIORITY FIX #3: Extracted for reusability.
-     */
-    private fun compositeHairOverlay(canvas: Canvas, overlayBitmap: Bitmap) {
+        tempCanvas.drawBitmap(mask, 0f, 0f, maskPaint)
+
+        // Composite the filtered hair onto the canvas
         val compositePaint = Paint().apply {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
             alpha = 200
         }
-        canvas.drawBitmap(overlayBitmap, 0f, 0f, compositePaint)
+
+        canvas.drawBitmap(tempBitmap, 0f, 0f, compositePaint)
     }
 
-    /**
-     * Apply combo filter (face + hair).
-     */
     private fun applyComboFilter(
         canvas: Canvas,
         analysisResult: HairAnalysisResult,
-        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets,
+        assets: com.example.nativelocal_slm_app.domain.repository.FilterAssets?,
         filter: FilterEffect
     ) {
         // Apply both face and hair filters

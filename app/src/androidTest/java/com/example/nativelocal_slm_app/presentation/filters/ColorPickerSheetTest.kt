@@ -8,7 +8,9 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.nativelocal_slm_app.ui.animation.PredefinedHairColors
 import com.example.nativelocal_slm_app.ui.theme.NativeLocal_SLM_AppTheme
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
