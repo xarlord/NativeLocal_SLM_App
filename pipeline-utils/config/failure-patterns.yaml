@@ -1,0 +1,341 @@
+# Failure Pattern Database
+# Defines common failure patterns, their severity, and remediation steps
+# Used by the auto-diagnosis system to classify and suggest fixes for build failures
+
+patterns:
+  # ============================================
+  # Memory Issues
+  # ============================================
+  - name: "OutOfMemoryError"
+    severity: "high"
+    category: "infrastructure"
+    regex: "OutOfMemoryError|java.lang.OutOfMemoryError"
+    remediation: |
+      Increase JVM memory allocation:
+
+      1. For Gradle builds:
+         export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m"
+
+      2. For Docker containers:
+         resources:
+           memory: 8GB
+
+      3. For specific tasks:
+         ./gradlew assembleDebug -Dorg.gradle.jvmargs="-Xmx4g"
+    auto_fixable: true
+    auto_fix_script: "fix-oom.sh"
+
+  - name: "MetaspaceOutOfMemory"
+    severity: "high"
+    category: "infrastructure"
+    regex: "Metaspace.*OutOfMemoryError|OutOfMemoryError.*Metaspace"
+    remediation: |
+      Increase metaspace size:
+
+      export GRADLE_OPTS="-XX:MaxMetaspaceSize=1g"
+    auto_fixable: true
+    auto_fix_script: "fix-metaspace.sh"
+
+  # ============================================
+  # Network Issues
+  # ============================================
+  - name: "NetworkTimeout"
+    severity: "medium"
+    category: "infrastructure"
+    regex: "timeout|TimeoutException|ConnectTimeout|ReadTimeout"
+    remediation: |
+      Network operation timed out. Solutions:
+
+      1. Increase timeout:
+         ./gradlew assembleDebug --timeout=600
+
+      2. Check network connectivity
+      3. Use local mirror for dependencies
+      4. Retry the operation
+    auto_fixable: true
+    auto_fix_script: "fix-timeout.sh"
+
+  - name: "ConnectionRefused"
+    severity: "medium"
+    category: "infrastructure"
+    regex: "Connection refused|ECONNREFUSED"
+    remediation: |
+      Connection refused. Possible causes:
+
+      1. Service not running
+      2. Wrong port/hostname
+      3. Firewall blocking connection
+
+      Check service status and configuration.
+    auto_fixable: false
+
+  # ============================================
+  # Gradle Issues
+  # ============================================
+  - name: "DependencyResolutionFailed"
+    severity: "medium"
+    category: "dependencies"
+    regex: "Could not resolve|Failed to resolve|Unable to resolve"
+    remediation: |
+      Gradle dependency resolution failed. Solutions:
+
+      1. Clean build cache:
+         ./gradlew clean --no-daemon
+
+      2. Refresh dependencies:
+         ./gradlew build --refresh-dependencies
+
+      3. Check repository configuration in build.gradle.kts
+
+      4. Verify internet connection
+    auto_fixable: true
+    auto_fix_script: "fix-dependencies.sh"
+
+  - name: "GradleDaemonStopped"
+    severity: "low"
+    category: "infrastructure"
+    regex: "Gradle daemon.*stopped|daemon.*disappeared"
+    remediation: |
+      Gradle daemon stopped unexpectedly.
+
+      Restart with:
+      ./gradlew --stop && ./gradlew build
+    auto_fixable: true
+    auto_fix_script: "fix-daemon.sh"
+
+  - name: "LockTimeoutException"
+    severity: "low"
+    category: "infrastructure"
+    regex: "Timeout waiting to lock|could not lock"
+    remediation: |
+      Gradle lock timeout. Another Gradle process may be running.
+
+      Stop all Gradle daemons:
+      ./gradlew --stop
+
+      Then retry the build.
+    auto_fixable: true
+    auto_fix_script: "fix-lock.sh"
+
+  # ============================================
+  # Compilation Errors
+  # ============================================
+  - name: "CompilationError"
+    severity: "high"
+    category: "code"
+    regex: "error:|cannot find symbol|incompatible types|unresolved reference"
+    file_extension: [".kt", ".java"]
+    remediation: |
+      Compilation error. This is a code issue that requires manual review.
+
+      Check:
+      1. Syntax errors in the file
+      2. Missing imports
+      3. Type mismatches
+      4. Missing dependencies
+    auto_fixable: false
+    requires_manual_review: true
+
+  - name: "KotlinNotNullAssertionError"
+    severity: "medium"
+    category: "code"
+    regex: "kotlin.KotlinNullPointerException|NotNull assertion failed"
+    file_extension: [".kt"]
+    remediation: |
+      Kotlin nullability assertion failed.
+
+      Fix by adding proper null checks or making the type nullable:
+      val item: Thing? = ...
+    auto_fixable: false
+    requires_manual_review: true
+
+  # ============================================
+  # Test Failures
+  # ============================================
+  - name: "TestFailure"
+    severity: "medium"
+    category: "tests"
+    regex: ".*Test.*FAILED|test.*failed|AssertionFailedError"
+    file_extension: ["Test.kt", "Test.java", "test.kt", "test.java"]
+    remediation: |
+      Unit test failed. Possible causes:
+
+      1. Test code is incorrect
+      2. Production code has a bug
+      3. Test is flaky (timing issues)
+      4. Environment issue (missing resources, wrong configuration)
+
+      Next steps:
+      1. Run test locally: ./gradlew test --tests <failing_test>
+      2. Check test logs for details
+      3. If flaky, add retry logic or fix race condition
+    auto_fixable: false
+    can_retry: true
+
+  - name: "AssertionError"
+    severity: "medium"
+    category: "tests"
+    regex: "junit.framework.AssertionFailedError|AssertionFailedError|expected.*but was"
+    remediation: |
+      Test assertion failed. The actual value didn't match the expected value.
+
+      Review the test and fix either:
+      1. The test (if expectation is wrong)
+      2. The code (if implementation is wrong)
+    auto_fixable: false
+
+  - name: "TestFlaky"
+    severity: "low"
+    category: "tests"
+    regex: "flaky|intermittent|timing|race condition"
+    remediation: |
+      Flaky test detected. The test sometimes passes, sometimes fails.
+
+      Solutions:
+      1. Add proper synchronization
+      2. Use awaitility for async operations
+      3. Increase timeouts
+      4. Fix race conditions
+      5. Add retry logic to test
+    auto_fixable: false
+
+  # ============================================
+  # Android Lint Issues
+  - name: "LintError"
+    severity: "low"
+    category: "code_quality"
+    regex: "Lint error|warning.*cannot be suppressed"
+    remediation: |
+      Android Lint found issues in the code.
+
+      View full report:
+      ./gradlew lint
+
+      Fix or suppress issues as appropriate.
+    auto_fixable: false
+
+  # ============================================
+  # Security Issues
+  # ============================================
+  - name: "SecretDetected"
+    severity: "critical"
+    category: "security"
+    regex: "(password|secret|api[_-]?key|token)\s*=\s*['\"][^'\"]{10,}"
+    remediation: |
+      ⚠️  SECRET DETECTED IN CODE!
+
+      This is a critical security issue. Immediate action required:
+
+      1. DO NOT commit this change
+      2. Remove the secret from code
+      3. Rotate the compromised credential
+      4. Use environment variables or secret management instead
+      5. Update .gitignore to prevent future leaks
+    auto_fixable: false
+    block_commit: true
+    notify_team: "security"
+
+  # ============================================
+  # Infrastructure Issues
+  # ============================================
+  - name: "DiskSpace"
+    severity: "high"
+    category: "infrastructure"
+    regex: "No space left on device|disk full"
+    remediation: |
+      Disk space exhausted.
+
+      Free up space:
+      1. Clean Docker: docker system prune -a
+      2. Clean Gradle cache: rm -rf ~/.gradle/caches
+      3. Clean build artifacts: ./gradlew clean
+    auto_fixable: true
+    auto_fix_script: "fix-disk-space.sh"
+
+  - name: "PermissionDenied"
+    severity: "medium"
+    category: "infrastructure"
+    regex: "Permission denied|EACCES"
+    remediation: |
+      Permission denied.
+
+      Fix file permissions:
+      chmod +x gradlew
+      chmod -R u+w .
+    auto_fixable: true
+    auto_fix_script: "fix-permissions.sh"
+
+  - name: "DockerImageNotFound"
+    severity: "high"
+    category: "infrastructure"
+    regex: "image not found|pull access denied"
+    remediation: |
+      Docker image not found.
+
+      Check:
+      1. Image name is correct
+      2. Image exists in registry
+      3. You have authentication (if private)
+
+      Build or pull the image:
+      docker build -t image:tag .
+      docker pull image:tag
+    auto_fixable: false
+
+# ============================================
+# Severity Levels
+# ============================================
+severity_definitions:
+  critical:
+    description: "Blocks all development, requires immediate attention"
+    notification: "immediate"
+    auto_block: true
+
+  high:
+    description: "Significant impact, should fix soon"
+    notification: "high_priority"
+    auto_block: false
+
+  medium:
+    description: "Moderate impact, fix when possible"
+    notification: "normal"
+    auto_block: false
+
+  low:
+    description: "Minor issue, fix when convenient"
+    notification: "low_priority"
+    auto_block: false
+
+# ============================================
+# Category Definitions
+# ============================================
+category_definitions:
+  infrastructure:
+    description: "Issues with build environment, tools, or resources"
+    team: "devops"
+    typically_auto_fixable: true
+
+  code:
+    description: "Issues in source code requiring manual fixes"
+    team: "development"
+    typically_auto_fixable: false
+
+  tests:
+    description: "Test failures and test infrastructure issues"
+    team: "development"
+    typically_auto_fixable: false
+
+  dependencies:
+    description: "Dependency resolution and library issues"
+    team: "development"
+    typically_auto_fixable: true
+
+  code_quality:
+    description: "Lint, style, and static analysis issues"
+    team: "development"
+    typically_auto_fixable: false
+
+  security:
+    description: "Security vulnerabilities and exposures"
+    team: "security"
+    typically_auto_fixable: false

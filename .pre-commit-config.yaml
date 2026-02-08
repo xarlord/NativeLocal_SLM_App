@@ -1,0 +1,34 @@
+# Pre-commit hooks configuration
+# This file defines which checks run before commits
+
+hooks:
+  - name: format
+    script: pipeline-utils/scripts/pre-commit-format.sh
+    description: Check code formatting with ktlint
+    pass_fail: true
+
+  - name: lint
+    script: pipeline-utils/scripts/pre-commit-lint.sh
+    description: Run Android lint checks
+    pass_fail: true
+
+  - name: tests
+    script: pipeline-utils/scripts/pre-commit-tests.sh
+    description: Run quick unit tests
+    pass_fail: true
+
+  - name: secrets
+    script: pipeline-utils/scripts/pre-commit-secrets.sh
+    description: Scan for secrets with trufflehog
+    pass_fail: true
+
+# Configuration options
+options:
+  # Skip hooks (use git commit --no-verify to bypass)
+  skip_on_merge: false
+
+  # Timeout for each hook (in seconds)
+  timeout: 300
+
+  # Minimum log level (debug, info, warn, error)
+  log_level: info

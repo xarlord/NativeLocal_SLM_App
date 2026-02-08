@@ -1,0 +1,341 @@
+################################################################################
+# Test Module Mapping Configuration
+# Part of Phase 6: Dynamic Test Selection
+#
+# This configuration maps source code modules to their corresponding test tasks,
+# defines test dependencies, and provides timing estimates for smart test selection.
+#
+# Format:
+#   modules:
+#     module_name:
+#       test_task: "gradle_task_name"
+#       dependencies: ["dependent_module1", "dependent_module2"]
+#       estimated_time: seconds
+#       source_patterns: ["glob/pattern1", "glob/pattern2"]
+################################################################################
+
+# Default configuration for Android projects
+defaults:
+  # Default test task pattern for modules
+  test_task_pattern: ":{module}:test"
+
+  # Default estimated test time (can be overridden per module)
+  default_test_time: 60
+
+  # Whether to always run tests for certain modules
+  always_test_modules:
+    - "app"
+    - "core"
+
+  # Modules that should trigger full test suite when changed
+  critical_modules:
+    - "buildSrc"
+    - "gradle"
+    - "build.gradle"
+    - "settings.gradle"
+
+# Module-specific configuration
+modules:
+  # Main application module
+  app:
+    test_task: ":app:testDebugUnitTest"
+    dependencies: []
+    estimated_time: 120
+    source_patterns:
+      - "app/src/main/**/*.kt"
+      - "app/src/main/**/*.java"
+      - "app/src/main/**/*.xml"
+    description: "Main application module"
+
+  # Data layer module
+  data:
+    test_task: ":data:test"
+    dependencies: ["domain"]
+    estimated_time: 90
+    source_patterns:
+      - "data/src/main/**/*.kt"
+      - "data/src/main/**/*.java"
+    description: "Data layer with repositories and data sources"
+
+  # Domain layer module
+  domain:
+    test_task: ":domain:test"
+    dependencies: []
+    estimated_time: 60
+    source_patterns:
+      - "domain/src/main/**/*.kt"
+      - "domain/src/main/**/*.java"
+    description: "Domain layer with business logic"
+
+  # UI/Presentation layer module
+  presentation:
+    test_task: ":presentation:test"
+    dependencies: ["domain"]
+    estimated_time: 80
+    source_patterns:
+      - "presentation/src/main/**/*.kt"
+      - "presentation/src/main/**/*.java"
+    description: "Presentation layer with ViewModels and UI logic"
+
+  # Core/Common module
+  core:
+    test_task: ":core:test"
+    dependencies: []
+    estimated_time: 45
+    source_patterns:
+      - "core/src/main/**/*.kt"
+      - "core/src/main/**/*.java"
+    description: "Core utilities and base classes"
+
+  # Network module
+  network:
+    test_task: ":network:test"
+    dependencies: ["core"]
+    estimated_time: 60
+    source_patterns:
+      - "network/src/main/**/*.kt"
+      - "network/src/main/**/*.java"
+    description: "Network layer and API clients"
+
+  # Database/Storage module
+  database:
+    test_task: ":database:test"
+    dependencies: ["core"]
+    estimated_time: 70
+    source_patterns:
+      - "database/src/main/**/*.kt"
+      - "database/src/main/**/*.java"
+      - "database/src/main/**/*.sql"
+    description: "Local database and caching"
+
+  # UI components module
+  ui-components:
+    test_task: ":ui-components:test"
+    dependencies: ["core", "presentation"]
+    estimated_time: 50
+    source_patterns:
+      - "ui-components/src/main/**/*.kt"
+      - "ui-components/src/main/**/*.xml"
+    description: "Reusable UI components and themes"
+
+  # Testing utilities module
+  testing:
+    test_task: ""  # No tests for test utilities
+    dependencies: []
+    estimated_time: 0
+    source_patterns:
+      - "testing/src/main/**/*.kt"
+    description: "Testing utilities and fixtures"
+
+  # Instrumentation tests
+  instrumentation:
+    test_task: ":app:connectedDebugAndroidTest"
+    dependencies: ["app"]
+    estimated_time: 300  # 5 minutes
+    source_patterns:
+      - "app/src/androidTest/**/*.kt"
+      - "app/src/androidTest/**/*.java"
+    description: "Android instrumentation tests"
+
+# File type to module mapping
+# Used when source_patterns don't match
+file_type_mapping:
+  # Gradle build files - always run all tests
+  "build.gradle*":
+    test_task: "test"
+    impact: "critical"
+  "build.gradle.kts":
+    test_task: "test"
+    impact: "critical"
+  "settings.gradle*":
+    test_task: "test"
+    impact: "critical"
+  "gradle.properties":
+    test_task: "test"
+    impact: "critical"
+
+  # Android manifests
+  "AndroidManifest.xml":
+    module: "app"
+    test_task: ":app:testDebugUnitTest"
+    impact: "high"
+
+  # Resource files
+  "**/res/**/*.xml":
+    module: "app"
+    test_task: ":app:testDebugUnitTest"
+    impact: "medium"
+
+  # Proto files - often affect multiple modules
+  "**/*.proto":
+    test_task: "test"
+    impact: "high"
+
+  # Kotlin/Java source files - mapped by module structure
+  "**/src/main/**/*.kt":
+    detect_module: true
+  "**/src/main/**/*.java":
+    detect_module: true
+
+  # Test files - don't trigger tests
+  "**/test/**/*.kt":
+    test_task: ""
+    impact: "none"
+  "**/test/**/*.java":
+    test_task: ""
+    impact: "none"
+
+# Test dependencies
+# When a module changes, also run tests for these dependent modules
+test_dependencies:
+  app:
+    - "data"
+    - "domain"
+    - "presentation"
+
+  data:
+    - "domain"
+
+  presentation:
+    - "domain"
+
+  domain: []
+
+  core: []  # Core is used by everyone, but we don't run all tests when it changes
+
+  network:
+    - "data"
+
+  database:
+    - "data"
+
+# Module groupings for running related tests together
+module_groups:
+  # Full backend stack
+  backend:
+    - "data"
+    - "domain"
+    - "network"
+    - "database"
+
+  # Full frontend stack
+  frontend:
+    - "app"
+    - "presentation"
+    - "ui-components"
+
+  # Core utilities
+  core_utils:
+    - "core"
+    - "testing"
+
+# Timing baselines (in seconds)
+# Used to estimate test execution time
+timing_baselines:
+  # Unit test baselines
+  unit_test_avg: 60
+  small_test_avg: 30
+  medium_test_avg: 90
+  large_test_avg: 300
+
+  # Module-specific baselines
+  app_test_baseline: 120
+  data_test_baseline: 90
+  domain_test_baseline: 60
+
+  # Instrumentation test baselines
+  instrumentation_test_avg: 300
+  ui_test_avg: 180
+
+# Coverage thresholds for test impact analysis
+coverage_thresholds:
+  # Minimum coverage percentage to consider tests "adequate"
+  min_coverage: 60
+
+  # If coverage drops below this, run additional tests
+  critical_coverage_threshold: 40
+
+  # Lines changed threshold for triggering tests
+  lines_changed_threshold: 10
+
+  # Files changed threshold for triggering tests
+  files_changed_threshold: 5
+
+# Advanced: JaCoCo-based test impact
+jacoco_impact:
+  enabled: false  # Set to true to enable JaCoCo-based analysis
+  exec_file: "build/jacoco/test.exec"
+  xml_report: "build/reports/jacoco/test/jacocoTestReport.xml"
+
+  # Coverage percentage threshold for considering a test "covers" a file
+  coverage_threshold: 50
+
+  # When changing a file, also run tests that cover it
+  run_covering_tests: true
+
+# Fallback behavior
+fallback:
+  # Fall back to full test suite if:
+  # - Change detection fails
+  # - No module mapping found
+  # - Critical files changed
+  enabled: true
+
+  # Critical files that always trigger full test suite
+  critical_files:
+    - "build.gradle"
+    - "build.gradle.kts"
+    - "settings.gradle"
+    - "settings.gradle.kts"
+    - "gradle.properties"
+    - "buildSrc/**"
+
+  # Maximum number of modules before running full suite is more efficient
+  max_modules_before_full: 8
+
+# Reporting configuration
+reporting:
+  # Generate JSON report
+  json_report: true
+
+  # Generate Markdown report
+  markdown_report: true
+
+  # Report directory
+  report_dir: "build/test-selection-report"
+
+  # Include timing data in reports
+  include_timing: true
+
+  # Include coverage data in reports
+  include_coverage: true
+
+################################################################################
+# Usage Examples:
+#
+# 1. Override module test task:
+#    modules:
+#      app:
+#        test_task: ":app:testDebugUnitTest --tests *.TestClass"
+#
+# 2. Add new module:
+#    modules:
+#      mymodule:
+#        test_task: ":mymodule:test"
+#        dependencies: ["core"]
+#        estimated_time: 45
+#
+# 3. Create custom module group:
+#    module_groups:
+#      my_group:
+#        - "module1"
+#        - "module2"
+#
+# 4. Adjust timing baselines:
+#    timing_baselines:
+#      unit_test_avg: 45  # Faster tests
+#
+# For more information, see:
+# - Phase 6 Summary: PHASE6_SUMMARY.md
+# - README: pipeline-utils/README.md
+################################################################################

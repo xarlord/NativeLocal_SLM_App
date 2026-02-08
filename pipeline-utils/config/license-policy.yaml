@@ -1,0 +1,197 @@
+# License Policy Configuration
+# Defines which open-source licenses are allowed, restricted, or require review
+#
+# This policy enforces compliance with legal and business requirements.
+# Modify this file based on your organization's policy.
+
+# ============================================
+# ALLOWED LICENSES
+# ============================================
+# Licenses in this list are automatically approved
+# Add commonly used permissive licenses here
+
+allowed:
+  - "MIT License"
+  - "MIT"
+  - "Apache License 2.0"
+  - "Apache-2.0"
+  - "Apache License, Version 2.0"
+  - "BSD 2-Clause License"
+  - "BSD-2-Clause"
+  - "BSD 3-Clause License"
+  - "BSD-3-Clause"
+  - "New BSD License"
+  - "ISC License"
+  - "ISC"
+  - "The Unlicense"
+  - "Unlicense"
+  - "Creative Commons Zero v1.0 Universal"
+  - "CC0-1.0"
+  - "Creative Commons Attribution 4.0"
+  - "CC-BY-4.0"
+  - "W3C License"
+  - "W3C"
+  - "Python Software Foundation License"
+  - "PSFL"
+  - "Zlib License"
+  - "Zlib"
+  - "libpng License"
+  - "Libpng"
+
+# ============================================
+# RESTRICTED LICENSES
+# ============================================
+# Licenses that are NOT allowed and will BLOCK builds
+# These typically have strong copyleft requirements
+
+restricted:
+  - "GNU General Public License v2.0"
+  - "GPL-2.0"
+  - "GPLv2"
+  - "GNU General Public License v3.0"
+  - "GPL-3.0"
+  - "GPLv3"
+  - "GNU Affero General Public License v3.0"
+  - "AGPL-3.0"
+  - "AGPLv3"
+  - "GNU General Public License"
+  - "GPL"
+  - "GNU Affero General Public License"
+  - "AGPL"
+  - "CDDL"
+  - "Common Development and Distribution License"
+  - "Eclipse Public License 1.0"
+  - "EPL-1.0"
+  - "MPL-1.1"
+  - "Mozilla Public License 1.1"
+  - "CPAL-1.0"
+  - "Common Public Attribution License"
+
+# ============================================
+# REVIEW REQUIRED LICENSES
+# ============================================
+# Licenses that require legal review before use
+# These may have special requirements or considerations
+
+review_required:
+  - "GNU Lesser General Public License v2.1"
+  - "LGPL-2.1"
+  - "LGPLv2.1"
+  - "GNU Lesser General Public License v3.0"
+  - "LGPL-3.0"
+  - "LGPLv3"
+  - "Mozilla Public License 2.0"
+  - "MPL-2.0"
+  - "Eclipse Public License 2.0"
+  - "EPL-2.0"
+  - "Boost Software License 1.0"
+  - "BSL-1.0"
+  - "Creative Commons Attribution-ShareAlike 4.0"
+  - "CC-BY-SA-4.0"
+  - "Open Software License 3.0"
+  - "OSL-3.0"
+  - "CDDL + GPLv2 with classpath exception"
+  - "GPL-2.0-with-classpath-exception"
+
+# ============================================
+# POLICY EXPLANATIONS
+# ============================================
+
+# ALLOWED:
+# - MIT, Apache 2.0, BSD, ISC: Permissive licenses that allow
+#   commercial use, modification, and distribution
+# - Minimal restrictions, suitable for proprietary software
+# - Safe for most use cases
+
+# RESTRICTED:
+# - GPL, AGPL: Strong copyleft licenses that require derivative
+#   works to be licensed under the same terms
+# - AGPL also requires source disclosure for network use
+# - Could force your proprietary code to become open source
+# - BLOCKED to protect intellectual property
+
+# REVIEW REQUIRED:
+# - LGPL: Lesser GPL - allows linking but requires dynamic linking
+#   or source availability for library modifications
+# - MPL, EPL: Weak copyleft with file-based requirements
+# - May have special requirements for corporate use
+# - Legal review needed to ensure proper compliance
+
+# ============================================
+# USAGE NOTES
+# ============================================
+
+# 1. Adding Licenses:
+#    - Use the full SPDX identifier when possible (e.g., "Apache-2.0")
+#    - Include common variations for better matching
+#    - Reference https://spdx.org/licenses/ for official list
+#
+# 2. License Conflicts:
+#    - Some licenses cannot be combined (e.g., GPL with proprietary)
+#    - Consider your project's distribution model
+#    - Consult legal counsel for complex cases
+#
+# 3. Exceptions:
+#    - For exceptions to this policy, create a legal review ticket
+#    - Document approved exceptions in your project's LICENSE file
+#    - Keep audit trail of exception approvals
+#
+# 4. Regular Review:
+#    - Review this policy quarterly with legal team
+#    - Update as business needs change
+#    - Keep records of policy changes
+#
+# 5. Testing:
+#    - Test policy with known dependencies
+#    - Verify classifications are correct
+#    - Adjust as needed based on actual usage
+
+# ============================================
+# COMMON LICENSE FAMILY NOTES
+# ============================================
+
+# Apache Family:
+#   Apache-1.0 - Allowed (permissive, modern)
+#   Apache-2.0 - Allowed (permissive, modern, includes patent grant)
+#
+# BSD Family:
+#   BSD-2-Clause - Allowed (permissive)
+#   BSD-3-Clause - Allowed (permissive, most common)
+#   BSD-4-Clause - Review required (advertising clause problematic)
+#
+# GPL Family:
+#   GPL-1.0, GPL-2.0 - Restricted (strong copyleft)
+#   GPL-3.0 - Restricted (strong copyleft, patent termination)
+#   AGPL-3.0 - Restricted (network copyleft)
+#   LGPL-2.1, LGPL-3.0 - Review required (weak copyleft)
+#
+# Mozilla Family:
+#   MPL-1.1 - Restricted (file-based copyleft, GPL incompatible)
+#   MPL-2.0 - Review required (modernized, more permissive)
+#
+# Creative Commons:
+#   CC0, CC-BY - Allowed (permissive)
+#   CC-BY-SA - Review required (share-alike copyleft)
+#   CC-BY-NC, CC-BY-ND - Review required (restrictions on use)
+#
+# Eclipse Family:
+#   EPL-1.0 - Restricted (GPL incompatible, copyleft)
+#   EPL-2.0 - Review required (more permissive, GPL compatible)
+
+# ============================================
+# RESOURCES
+# ============================================
+
+# SPDX License List: https://spdx.org/licenses/
+# ChooseALicense: https://choosealicense.com/
+# FOSSA: https://fossa.com/
+# TLDRLegal: https://www.tldrlegal.com/
+
+# ============================================
+# END OF POLICY
+# ============================================
+
+# For questions about this policy, contact:
+# - Legal Team: legal@example.com
+# - Security Team: security@example.com
+# - Open Source Office: opensource@example.com

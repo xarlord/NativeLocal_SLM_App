@@ -1,0 +1,321 @@
+# Issue Triage Configuration
+# Controls automated issue classification, assignment, and complexity estimation
+
+# ============================================
+# Classification Keywords
+# ============================================
+# Define keywords for automatic issue classification
+# Issues are classified based on keyword matches in title and body
+
+classification_keywords:
+  # Bug report indicators
+  bug:
+    - crash
+    - error
+    - broken
+    - doesn't work
+    - failing
+    - fix
+    - bug
+    - issue
+    - problem
+    - fail
+    - exception
+    - regression
+    - incorrect
+    - wrong
+
+  # Feature request indicators
+  feature:
+    - add
+    - implement
+    - new feature
+    - would like
+    - request
+    - feature
+    - support
+    - functionality
+
+  # Enhancement indicators
+  enhancement:
+    - improve
+    - enhance
+    - better
+    - optimize
+    - refactor
+    - cleanup
+    - enhancement
+    - improvement
+    - polish
+
+  # Documentation indicators
+  documentation:
+    - docs
+    - readme
+    - documentation
+    - guide
+    - tutorial
+    - doc
+    - comment
+    - explain
+
+  # Performance indicators
+  performance:
+    - slow
+    - performance
+    - optimize
+    - faster
+    - lag
+    - speed
+    - latency
+    - memory
+    - efficient
+
+  # Security indicators
+  security:
+    - security
+    - vulnerability
+    - exploit
+    - hack
+    - attack
+    - secure
+    - permission
+    - auth
+    - CVE
+    - XSS
+    - injection
+
+  # Question indicators
+  question:
+    - how
+    - what
+    - why
+    - when
+    - where
+    - who
+    - help
+    - question
+
+# ============================================
+# Duplicate Detection
+# ============================================
+
+# Similarity threshold for marking issues as duplicates
+# Range: 0.0 to 1.0 (0% to 100%)
+# Higher = more strict (fewer false positives, may miss duplicates)
+# Lower = more lenient (catch more duplicates, more false positives)
+duplicate_threshold: 0.7  # 70% similarity
+
+# Maximum number of similar issues to check
+max_duplicate_checks: 20
+
+# ============================================
+# Issue Assignment
+# ============================================
+
+# Default assignee when no code owner is found
+# Set to empty string to skip assignment
+default_assignee: ""
+
+# Assignment methods (in order of priority):
+# 1. code_ownership - Query code_ownership table based on file/module mentions
+# 2. default - Use default_assignee from this config
+# 3. skip - Leave unassigned
+assignment_fallback: skip
+
+# Maximum number of assignees per issue
+max_assignees: 3
+
+# ============================================
+# Complexity Estimation
+# ============================================
+
+# Weights for different complexity factors
+# Must sum to 1.0
+complexity_factors:
+  lines_of_code_weight: 0.3    # Estimated lines of code impact
+  files_affected_weight: 0.2   # Number of files affected impact
+  keyword_weight: 0.5          # Keyword analysis impact
+
+# Complexity scale definitions
+complexity_scale:
+  1:
+    label: "Trivial"
+    description: "Quick fix, minimal changes"
+    estimated_hours: 1
+  2:
+    label: "Low"
+    description: "Simple changes, well-defined scope"
+    estimated_hours: 4
+  3:
+    label: "Medium"
+    description: "Moderate changes, some complexity"
+    estimated_hours: 16
+  4:
+    label: "High"
+    description: "Complex changes, multiple components"
+    estimated_hours: 40
+  5:
+    label: "Critical"
+    description: "Major refactoring or architecture changes"
+    estimated_hours: 80
+
+# High complexity keywords
+complexity_keywords_high:
+  - refactor
+  - rewrite
+  - redesign
+  - restructure
+  - architecture
+  - migration
+  - major
+  - overhaul
+
+# Medium complexity keywords
+complexity_keywords_medium:
+  - feature
+  - enhancement
+  - implement
+  - add
+  - new
+  - support
+  - optimize
+  - improve
+
+# Low complexity keywords
+complexity_keywords_low:
+  - minor
+  - trivial
+  - simple
+  - small
+  - typo
+  - update
+  - change
+  - tweak
+  - adjust
+
+# ============================================
+# Issue Reporting
+# ============================================
+
+# Report generation settings
+report:
+  # Default report format: markdown or html
+  format: markdown
+
+  # Number of days to include in weekly report
+  report_days: 7
+
+  # Maximum issues to show in each section
+  max_issues_per_section: 20
+
+  # Output directory for reports
+  output_dir: "/tmp/issue-reports"
+
+# Stale issue thresholds
+stale_issues:
+  # Days without activity before issue is considered stale
+  stale_threshold_days: 7
+
+  # Days before stale issue should be closed
+  close_threshold_days: 30
+
+# ============================================
+# Notifications
+# ============================================
+
+# Enable/disable notifications for triage actions
+notifications:
+  # Notify when new issues are classified
+  classify_enabled: true
+
+  # Notify when duplicates are detected
+  duplicate_enabled: true
+
+  # Notify when issues are assigned
+  assign_enabled: false  # Can be noisy
+
+  # Notify when complexity is estimated
+  complexity_enabled: false  # Can be noisy
+
+  # Notify when weekly report is generated
+  report_enabled: true
+
+# ============================================
+# Rate Limiting
+# ============================================
+
+# GitHub API rate limit handling
+rate_limiting:
+  # Sleep duration between API calls (seconds)
+  api_call_delay: 1
+
+  # Maximum retries for failed API calls
+  max_retries: 3
+
+  # Backoff multiplier for retries
+  retry_backoff: 2
+
+# ============================================
+# Database Integration
+# ============================================
+
+# Enable/disable database logging
+database:
+  # Log classifications to issue_triage table
+  log_classifications: true
+
+  # Log duplicate detections to issue_duplicates table
+  log_duplicates: true
+
+  # Log assignments to issue_assignments table
+  log_assignments: true
+
+  # Log complexity estimates to issue_complexity table
+  log_complexity: true
+
+  # Log issue-commit links to issue_commits table
+  log_commit_links: true
+
+# ============================================
+# Label Management
+# ============================================
+
+# Auto-created labels (if they don't exist)
+auto_create_labels:
+  - name: "complexity-1"
+    color: "008800"
+    description: "Trivial complexity (1/5)"
+  - name: "complexity-2"
+    color: "77bb00"
+    description: "Low complexity (2/5)"
+  - name: "complexity-3"
+    color: "ffbb00"
+    description: "Medium complexity (3/5)"
+  - name: "complexity-4"
+    color: "ff6600"
+    description: "High complexity (4/5)"
+  - name: "complexity-5"
+    color: "cc0000"
+    description: "Critical complexity (5/5)"
+  - name: "duplicate"
+    color: "cccccc"
+    description: "Duplicate of another issue"
+  - name: "in-progress"
+    color: "5319e7"
+    description: "Currently being worked on"
+
+# ============================================
+# Advanced Settings
+# ============================================
+
+# Enable experimental features
+experimental:
+  # Use ML-based classification (requires additional setup)
+  ml_classification: false
+
+  # Use semantic similarity for duplicate detection
+  semantic_similarity: false
+
+  # Auto-create pull requests for simple issues
+  auto_pr_creation: false

@@ -1,0 +1,107 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "{{EMOJI}} {{TITLE}}"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*Pattern:*\n{{PATTERN_NAME}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Severity:*\n{{SEVERITY}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Category:*\n{{CATEGORY}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Branch:*\n{{BRANCH}}"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Error Message:*\n```\n{{ERROR_MESSAGE}}\n```"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Location:*\n{{LOCATION}}"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Suggested Fix:*\n{{REMEDIATION}}"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Code Owners:*\n{{OWNERS_LIST}}"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Build Details:*\n• Build: <{{BUILD_URL}}|#{{BUILD_ID}}>\n• Commit: <{{COMMIT_URL}}|\`{{COMMIT_SHORT}}\`>\n• Author: {{AUTHOR}}\n• Message: {{COMMIT_MESSAGE}}"
+      }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "View Logs"
+          },
+          "url": "{{LOGS_URL}}",
+          "style": "primary"
+        },
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "View Commit"
+          },
+          "url": "{{COMMIT_URL}}"
+        },
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "Retry Build"
+          },
+          "url": "{{RETRY_URL}}",
+          "style": "danger"
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Woodpecker CI | {{TIMESTAMP}} | {{AUTO_FIX_NOTICE}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,410 @@
+# Deployment Policy Configuration
+# Defines thresholds, monitoring windows, and rollback behavior
+# for automated deployment and rollback systems
+
+# ============================================
+# Rollback Thresholds
+# ============================================
+rollback:
+  # Error rate threshold (percentage)
+  # If error rate exceeds this value, trigger automatic rollback
+  error_rate_threshold: 5.0
+
+  # Availability threshold (percentage)
+  # If availability drops below this value, trigger automatic rollback
+  availability_threshold: 99.0
+
+  # Response time threshold (milliseconds)
+  # If response time exceeds this value, trigger automatic rollback
+  response_time_threshold: 2000
+
+  # Maximum number of consecutive failures before rollback
+  max_consecutive_failures: 3
+
+  # Time window for consecutive failures (seconds)
+  failure_window_seconds: 60
+
+  # Enable automatic rollback
+  auto_rollback_enabled: true
+
+# ============================================
+# Health Check Configuration
+# ============================================
+health_checks:
+  # Health check endpoint
+  endpoint: "${HEALTH_ENDPOINT:-http://localhost:8080/health}"
+
+  # Metrics endpoint (Prometheus format)
+  metrics_endpoint: "${METRICS_ENDPOINT:-http://localhost:8080/metrics}"
+
+  # Health check interval (seconds)
+  check_interval: 30
+
+  # Health check timeout (seconds)
+  timeout: 10
+
+  # Number of retries before marking unhealthy
+  max_retries: 3
+
+  # Delay between retries (seconds)
+  retry_delay: 5
+
+  # Initial delay after deployment before first check (seconds)
+  initial_delay: 30
+
+  # Required fields in health check response
+  required_fields:
+    - status
+    - timestamp
+
+  # Optional but recommended fields
+  recommended_fields:
+    - error_rate
+    - availability
+    - response_time
+
+# ============================================
+# Progressive Deployment Configuration
+# ============================================
+progressive_deployment:
+  # Enable progressive deployment
+  enabled: true
+
+  # Traffic rollout stages (percentage)
+  stages:
+    - percentage: 10
+      name: "canary"
+      description: "Initial canary release"
+
+    - percentage: 25
+      name: "early_adopter"
+      description: "Expanded to early adopters"
+
+    - percentage: 50
+      name: "majority"
+      description: "Majority of users"
+
+    - percentage: 100
+      name: "full_release"
+      description: "Complete rollout"
+
+  # Time to wait at each stage before health checks (seconds)
+  stage_wait_time: 300  # 5 minutes
+
+  # Minimum wait time (cannot go below this)
+  min_stage_wait_time: 60  # 1 minute
+
+  # Maximum wait time
+  max_stage_wait_time: 3600  # 1 hour
+
+  # Enable auto-rollback on health check failure
+  auto_rollback_on_failure: true
+
+  # Continue to next stage even if warnings are present
+  proceed_with_warnings: false
+
+# ============================================
+# Monitoring Windows
+# ============================================
+monitoring:
+  # Short-term monitoring window (seconds)
+  # Used for immediate health checks after deployment
+  short_term_window: 300  # 5 minutes
+
+  # Medium-term monitoring window (seconds)
+  # Used for stability assessment
+  medium_term_window: 1800  # 30 minutes
+
+  # Long-term monitoring window (seconds)
+  # Used for trend analysis
+  long_term_window: 86400  # 24 hours
+
+  # Metrics to collect during monitoring
+  metrics:
+    - name: "error_rate"
+      type: "percentage"
+      aggregation: "average"
+
+    - name: "availability"
+      type: "percentage"
+      aggregation: "average"
+
+    - name: "response_time"
+      type: "milliseconds"
+      aggregation: "p95"  # 95th percentile
+
+    - name: "request_count"
+      type: "count"
+      aggregation: "sum"
+
+    - name: "cpu_usage"
+      type: "percentage"
+      aggregation: "average"
+
+    - name: "memory_usage"
+      type: "percentage"
+      aggregation: "average"
+
+# ============================================
+# Alert Thresholds
+# ============================================
+alerts:
+  # Warning thresholds (don't trigger rollback, but notify)
+  warning:
+    error_rate: 3.0
+    availability: 99.5
+    response_time: 1500
+
+  # Critical thresholds (trigger rollback)
+  critical:
+    error_rate: 5.0
+    availability: 99.0
+    response_time: 2000
+
+  # Alert channels
+  channels:
+    - type: "slack"
+      enabled: false
+      webhook_url: "${SLACK_WEBHOOK_URL:-}"
+
+    - type: "github"
+      enabled: true
+      create_issues: true
+
+    - type: "email"
+      enabled: false
+      recipients: []
+
+# ============================================
+# Deployment Environments
+# ============================================
+environments:
+  development:
+    auto_rollback_enabled: false
+    health_check_interval: 60
+    progressive_deployment: false
+
+  staging:
+    auto_rollback_enabled: true
+    health_check_interval: 30
+    progressive_deployment:
+      enabled: true
+      stage_wait_time: 180  # 3 minutes
+
+  production:
+    auto_rollback_enabled: true
+    health_check_interval: 30
+    progressive_deployment:
+      enabled: true
+      stage_wait_time: 300  # 5 minutes
+    rollback_thresholds:
+      error_rate: 5.0
+      availability: 99.0
+      response_time: 2000
+
+# ============================================
+# Incident Management
+# ============================================
+incidents:
+  # Automatically create GitHub issues on rollback
+  create_issue_on_rollback: true
+
+  # Issue template
+  issue_template: |
+    ## Deployment Rollback Incident
+
+    **Deployment ID:** `{{ deployment_id }}`
+    **Rollback Commit:** `{{ rollback_commit }}`
+    **Failed Commit:** `{{ failed_commit }}`
+    **Rollback Time:** {{ timestamp }}
+
+    ### Reason
+    {{ rollback_reason }}
+
+    ### Details
+    {{ details }}
+
+    ### Action Items
+    - [ ] Investigate root cause
+    - [ ] Review metrics and logs
+    - [ ] Fix the issue
+    - [ ] Test thoroughly before redeploying
+
+  # Severity levels
+  severity:
+    critical:
+      notify_immediately: true
+      create_issue: true
+      labels: ["incident", "critical", "rollback"]
+
+    high:
+      notify_immediately: true
+      create_issue: true
+      labels: ["incident", "high", "rollback"]
+
+    medium:
+      notify_immediately: false
+      create_issue: true
+      labels: ["incident", "medium"]
+
+    low:
+      notify_immediately: false
+      create_issue: false
+
+# ============================================
+# Rollback Strategy
+# ============================================
+rollback_strategy:
+  # Type of rollback to perform
+  type: "automated"  # Options: automated, manual, hybrid
+
+  # Rollback method
+  method: "git_reset"  # Options: git_reset, deployment_script, blue_green
+
+  # Deployment script to use (if method is deployment_script)
+  deployment_script: "${DEPLOYMENT_SCRIPT:-}"
+
+  # Update last-stable-version marker
+  update_marker: true
+
+  # Notify team after rollback
+  notify_team: true
+
+  # Create incident issue
+  create_incident: true
+
+  # Store rollback event in database
+  store_metrics: true
+
+# ============================================
+# Quality Gates
+# ============================================
+quality_gates:
+  # Enable quality gates before progressive deployment
+  enabled: true
+
+  # Minimum code coverage required (percentage)
+  min_code_coverage: 80.0
+
+  # Maximum performance regression allowed (percentage)
+  max_performance_regression: 5.0
+
+  # Required test status
+  require_tests_pass: true
+
+  # Require security scan pass
+  require_security_pass: true
+
+  # Block deployment if quality gates fail
+  block_on_failure: true
+
+# ============================================
+# Database Configuration
+# ============================================
+database:
+  # Store deployment events
+  store_events: true
+
+  # Store health check metrics
+  store_metrics: true
+
+  # Store progressive deployment stages
+  store_stages: true
+
+  # Retention period for deployment data (days)
+  retention_days: 90
+
+  # Cleanup old data automatically
+  auto_cleanup: true
+
+# ============================================
+# Notifications
+# ============================================
+notifications:
+  # Notify on deployment start
+  on_start:
+    enabled: true
+    channels: ["github"]
+
+  # Notify on deployment completion
+  on_complete:
+    enabled: true
+    channels: ["github"]
+
+  # Notify on rollback
+  on_rollback:
+    enabled: true
+    channels: ["github", "slack"]
+    notify_immediately: true
+
+  # Notify on health check failure
+  on_health_failure:
+    enabled: true
+    channels: ["github"]
+    min_severity: "high"
+
+# ============================================
+# Advanced Settings
+# ============================================
+advanced:
+  # Enable feature flags for deployment
+  feature_flags:
+    enabled: false
+    provider: ""  # Options: launchdarkly, optimizely, custom
+
+  # Blue-Green Deployment settings
+  blue_green:
+    enabled: false
+    switch_method: "dns"  # Options: dns, load_balancer
+
+  # Traffic splitting method
+  traffic_splitting:
+    method: "weighted"  # Options: weighted, header_based, cookie_based
+    provider: ""  # Options: nginx, envoy, istio, custom
+
+  # Graceful shutdown settings
+  graceful_shutdown:
+    enabled: true
+    wait_timeout: 30  # seconds
+    drain_timeout: 60  # seconds
+
+  # Database migration settings
+  migrations:
+    run_before_deploy: false
+    run_after_deploy: true
+    rollback_on_failure: true
+
+# ============================================
+# Validation Rules
+# ============================================
+validation:
+  # Validate deployment configuration before starting
+  validate_config: true
+
+  # Check prerequisites before deployment
+  check_prerequisites: true
+
+  # Verify health endpoint is accessible
+  verify_health_endpoint: true
+
+  # Verify database connection
+  verify_database: true
+
+  # Verify rollback capability
+  verify_rollback: true
+
+# ============================================
+# Debugging
+# ============================================
+debug:
+  # Enable verbose logging
+  verbose_logging: false
+
+  # Log all health check responses
+  log_health_checks: true
+
+  # Store detailed metrics
+  detailed_metrics: false
+
+  # Dry-run mode (no actual changes)
+  dry_run: false

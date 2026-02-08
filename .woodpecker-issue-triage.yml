@@ -1,0 +1,195 @@
+# Woodpecker CI Pipeline for Issue Triage Automation
+# Runs weekly to classify, detect duplicates, assign, and report on issues
+
+when:
+  event: cron
+  cron: weekly  # Runs once per week
+
+# Alternatively, you can use a specific schedule:
+# cron: "0 9 * * 1"  # Every Monday at 9 AM
+
+# Global environment variables
+environment:
+  # Database connection (use Woodpecker secrets)
+  DB_HOST: "${DB_HOST}"
+  DB_PORT: "${DB_PORT}"
+  DB_NAME: "${DB_NAME}"
+  DB_USER: "${DB_USER}"
+  DB_PASSWORD: "${DB_PASSWORD}"
+
+  # Issue triage settings
+  REPORT_DAYS: "7"
+  NOTIFY_CHANNELS: "slack"
+
+# Pipeline steps
+steps:
+  # ============================================
+  # Step 1: Classify New Issues
+  # ============================================
+  classify-new:
+    image: android-ci:latest
+    commands:
+      - echo "Classifying new issues from the last 7 days..."
+      - ./pipeline-utils/scripts/classify-new-issues.sh 7
+    environment:
+      # Use GitHub token from secrets
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_REPO: "${CI_REPO}"
+    when:
+      event: cron
+
+  # ============================================
+  # Step 2: Detect Duplicates
+  # ============================================
+  detect-duplicates:
+    image: android-ci:latest
+    commands:
+      - echo "Detecting duplicate issues..."
+      - |
+        # Get recent issues (last 30 days)
+        ISSUES=$(gh issue list --limit 50 --state open --json number --jq '.[].number' || echo "")
+        if [[ -n "$ISSUES" ]]; then
+          echo "$ISSUES" | while read -r issue_number; do
+            [[ -z "$issue_number" ]] && continue
+            echo "Checking issue #$issue_number for duplicates..."
+            ./pipeline-utils/scripts/detect-duplicates.sh "$issue_number" || true
+            sleep 2  # Rate limiting
+          done
+        else
+          echo "No issues to check"
+        fi
+    environment:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_REPO: "${CI_REPO}"
+      DUPLICATE_THRESHOLD: "0.7"
+      MAX_RESULTS: "20"
+    when:
+      event: cron
+
+  # ============================================
+  # Step 3: Assign Unassigned Issues
+  # ============================================
+  assign-unassigned:
+    image: android-ci:latest
+    commands:
+      - echo "Assigning unassigned issues..."
+      - ./pipeline-utils/scripts/assign-unassigned-issues.sh 20
+    environment:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_REPO: "${CI_REPO}"
+      DEFAULT_ASSIGNEE: ""
+    when:
+      event: cron
+
+  # ============================================
+  # Step 4: Estimate Complexity for New Issues
+  # ============================================
+  estimate-complexity:
+    image: android-ci:latest
+    commands:
+      - echo "Estimating complexity for new issues..."
+      - |
+        # Get issues from last 7 days without complexity label
+        SINCE_DATE=$(date -d "7 days ago" +%Y-%m-%d)
+        ISSUES=$(gh issue list --limit 50 --state open --search "created:>=$SINCE_DATE" --json number,labels --jq '.[] | select(.labels[]?.name | test("complexity-") | not) | .number' || echo "")
+        if [[ -n "$ISSUES" ]]; then
+          echo "$ISSUES" | while read -r issue_number; do
+            [[ -z "$issue_number" ]] && continue
+            echo "Estimating complexity for issue #$issue_number..."
+            ./pipeline-utils/scripts/estimate-complexity.sh "$issue_number" || true
+            sleep 1  # Rate limiting
+          done
+        else
+          echo "No new issues to estimate"
+        fi
+    environment:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_REPO: "${CI_REPO}"
+      LINES_WEIGHT: "0.3"
+      FILES_WEIGHT: "0.2"
+      KEYWORD_WEIGHT: "0.5"
+    when:
+      event: cron
+
+  # ============================================
+  # Step 5: Link Commits to Issues
+  # ============================================
+  link-commits:
+    image: android-ci:latest
+    commands:
+      - echo "Linking commits to issues..."
+      - ./pipeline-utils/scripts/link-issues-to-commits.sh HEAD~100..HEAD
+    environment:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_REPO: "${CI_REPO}"
+    when:
+      event: cron
+
+  # ============================================
+  # Step 6: Generate Weekly Report
+  # ============================================
+  weekly-report:
+    image: android-ci:latest
+    commands:
+      - echo "Generating weekly issue triage report..."
+      - ./pipeline-utils/scripts/generate-issue-report.sh --format markdown --output /tmp/issue-report.md
+      - echo "Report generated:"
+      - cat /tmp/issue-report.md
+    environment:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_REPO: "${CI_REPO}"
+      REPORT_DAYS: "7"
+      REPORT_FORMAT: "markdown"
+      OUTPUT_FILE: "/tmp/issue-report.md"
+    when:
+      event: cron
+
+  # ============================================
+  # Step 7: Send Notifications
+  # ============================================
+  send-notifications:
+    image: android-ci:latest
+    commands:
+      - echo "Sending issue triage notifications..."
+      - |
+        # Create notification data
+        cat > /tmp/notification.json <<EOF
+        {
+          "title": "Weekly Issue Triage Complete",
+          "message": "Issue triage automation completed successfully",
+          "category": "issue-triage",
+          "severity": "low",
+          "emoji": "✅"
+        }
+        EOF
+
+        # Send notification
+        ./pipeline-utils/scripts/send-notification.sh "" /tmp/notification.json || true
+    environment:
+      SLACK_WEBHOOK_URL: "${SLACK_WEBHOOK_URL}"
+      NOTIFY_CHANNELS: "slack"
+    when:
+      event: cron
+      status: [success, failure]
+
+# ============================================
+# Alternative: Manual Trigger Pipeline
+# ============================================
+# You can also create a separate pipeline for manual triggering:
+#
+# when:
+#   event: manual
+#
+# steps:
+#   triage-all:
+#     image: android-ci:latest
+#     commands:
+#       - ./pipeline-utils/scripts/classify-new-issues.sh 30
+#       - ./pipeline-utils/scripts/assign-unassigned-issues.sh 50
+#       - ./pipeline-utils/scripts/generate-issue-report.sh
+
+# ============================================
+# Volumes and Caching
+# ============================================
+# No special volumes needed for issue triage
+# All data is fetched from GitHub API and stored in database

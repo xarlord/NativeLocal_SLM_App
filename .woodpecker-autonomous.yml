@@ -1,0 +1,224 @@
+# Woodpecker CI Pipeline with Self-Healing
+# Demonstrates autonomous CI/CD features from Phase 2
+
+when:
+  event:
+    - push
+    - pull_request
+  # Skip CI if commit message contains [skip ci]
+  evaluate: 'CI_COMMIT_MESSAGE does not contain "[skip ci]"'
+
+# Global environment variables
+environment:
+  GRADLE_USER_HOME: /cache/gradle
+  ANDROID_HOME: /opt/android-sdk
+  CI: true
+
+# ============================================
+# Self-Healing Pipeline Steps
+# ============================================
+steps:
+  # ============================================
+  # STEP 1: Diagnose Previous Failures
+  # ============================================
+  diagnose-previous:
+    image: android-ci:latest
+    commands:
+      # Check if there was a previous failure
+      - |
+        if [ -f .last-build-status ]; then
+          LAST_STATUS=$(cat .last-build-status)
+          if [ "$LAST_STATUS" != "success" ]; then
+            echo "⚠️  Previous build failed with status: $LAST_STATUS"
+            echo "Running diagnostics..."
+
+            # Run failure diagnosis if logs exist
+            if [ -f .last-build-log ]; then
+              /opt/pipeline-utils/scripts/diagnose-failure.sh .last-build-log
+            fi
+          fi
+        fi
+
+  # ============================================
+  # STEP 2: Cache Freshness Check
+  # ============================================
+  check-cache:
+    image: android-ci:latest
+    commands:
+      - cd simpleGame
+      # Check if Gradle cache is fresh
+      - /opt/pipeline-utils/scripts/check-cache-freshness.sh || echo "Cache invalidated"
+
+  # ============================================
+  # STEP 3: Analyze & Allocate Resources
+  # ============================================
+  resource-analysis:
+    image: android-ci:latest
+    commands:
+      # Analyze project size and get resource recommendations
+      - /opt/pipeline-utils/scripts/analyze-project-size.sh --yaml > .resource-config.yaml
+
+      # Display recommendations
+      - echo "Resource allocation:"
+      - cat .resource-config.yaml | grep -A2 "resources:"
+
+      # Export as environment variables for next steps
+      - echo "RECOMMENDED_MEMORY=$(cat .resource-config.yaml | grep 'memory:' | awk '{print $2}' | sed 's/GB/GB/')" >> .env
+      - echo "RECOMMENDED_CPU=$(cat .resource-config.yaml | grep 'cpu:' | awk '{print $2}')" >> .env
+
+  # ============================================
+  # STEP 4: Build with Auto-Retry
+  # ============================================
+  build:
+    image: android-ci:latest
+    commands:
+      - cd simpleGame
+      # Build with automatic retry on transient failures
+      - /opt/pipeline-utils/scripts/retry-command.sh --max-retries=3 --backoff=exponential ./gradlew clean assembleDebug --no-daemon --stacktrace
+
+      # Save build status
+      - echo "success" > .last-build-status
+    environment:
+      GRADLE_USER_HOME: /cache/gradle
+    # Save logs on failure
+    failure:
+      commands:
+        - echo "failure" > .last-build-status
+        - ./gradlew clean assembleDebug --no-daemon --stacktrace 2>&1 | tee .last-build-log
+
+  # ============================================
+  # STEP 5: Unit Tests with Auto-Retry
+  # ============================================
+  unit-tests:
+    image: android-ci:latest
+    commands:
+      - cd simpleGame
+      # Run tests with retry (flaky tests are common)
+      - /opt/pipeline-utils/scripts/retry-command.sh --max-retries=2 ./gradlew testStandardDebugUnitTest --no-daemon --stacktrace
+
+      # Generate coverage report
+      - ./gradlew jacocoTestReport --no-daemon
+    environment:
+      GRADLE_USER_HOME: /cache/gradle
+
+  # ============================================
+  # STEP 6: Lint with Auto-Fix Attempts
+  # ============================================
+  lint:
+    image: android-ci:latest
+    commands:
+      - cd simpleGame
+      # Run lint with retry
+      - /opt/pipeline-utils/scripts/retry-command.sh ./gradlew lintStandardDebug --no-daemon --stacktrace
+
+      # Save status for diagnosis
+      - echo $? > .lint-status
+
+  # ============================================
+  # STEP 7: Failure Diagnosis (if build failed)
+  # ============================================
+  diagnose-failure:
+    image: android-ci:latest
+    commands:
+      - |
+        # Only run if previous steps failed
+        if [ -f .last-build-log ]; then
+          echo "🔍 Running failure diagnosis..."
+          /opt/pipeline-utils/scripts/diagnose-failure.sh .last-build-log
+
+          # Try auto-fix if available
+          if [ $? -eq 1 ]; then
+            echo "Attempting auto-fix..."
+            # Check for OOM errors
+            if grep -q "OutOfMemoryError" .last-build-log; then
+              export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m"
+              echo "Increased memory allocation"
+              echo "Retrying build with new settings..."
+              ./gradlew assembleDebug --no-daemon
+            fi
+          fi
+        fi
+    when:
+      status:
+        - failure
+
+# ============================================
+# Auto-Fix Steps (Conditional)
+# ============================================
+
+# Fix common Gradle issues
+fix-gradle-issues:
+    image: android-ci:latest
+    commands:
+      - cd simpleGame
+      # Clear Gradle cache if lock timeout
+      - |
+        if grep -q "Timeout waiting to lock" .last-build-log 2>/dev/null; then
+          echo "Lock timeout detected, clearing Gradle cache..."
+          rm -rf /cache/gradle/caches/*.lock
+          ./gradlew clean --no-daemon
+        fi
+    when:
+      status:
+        - failure
+      evaluate: BUILD_STATUS == "failure"
+
+# ============================================
+# Artifact Collection
+# ============================================
+collect-artifacts:
+    image: android-ci:latest
+    commands:
+      - cd simpleGame
+      - mkdir -p artifacts/apk artifacts/test-results artifacts/coverage
+
+      # Copy APK files
+      - find app/build/outputs/apk -name "*.apk" -exec cp {} artifacts/apk/ \; 2>/dev/null || true
+
+      # Copy test reports
+      - cp -r app/build/test-results artifacts/test-results/ 2>/dev/null || true
+      - cp -r app/build/reports/tests artifacts/test-results/ 2>/dev/null || true
+
+      # Copy coverage reports
+      - cp -r app/build/reports/jacoco artifacts/coverage/ 2>/dev/null || true
+
+      # List collected artifacts
+      - echo "=== Collected Artifacts ==="
+      - ls -lah artifacts/apk/ 2>/dev/null || echo "No APK files"
+      - echo ""
+      - ls -lah artifacts/test-results/ 2>/dev/null || echo "No test results"
+    when:
+      status:
+        - success
+        - failure
+
+# ============================================
+# Notification (on failure)
+# ============================================
+notify-failure:
+    image: plugins/slack
+    settings:
+      webhook: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+    when:
+      status:
+        - failure
+    template: |
+      ❌ Build {{build.number}} failed
+
+      Commit: {{commit.sha[:8]}} by {{commit.author}}
+      Branch: {{commit.branch}}
+
+      {{if .last-build-log}}
+      Running automated diagnosis...
+      {{end}}
+
+      View details: {{build.link}}
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  gradle-cache:
+    driver: local
+  android-sdk:
+    driver: local
