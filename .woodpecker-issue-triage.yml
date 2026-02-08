@@ -33,7 +33,7 @@ steps:
       - ./pipeline-utils/scripts/classify-new-issues.sh 7
     environment:
       # Use GitHub token from secrets
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_TOKEN: "${PERSONAL_TOKEN}"
       GITHUB_REPO: "${CI_REPO}"
     when:
       event: cron
@@ -59,7 +59,7 @@ steps:
           echo "No issues to check"
         fi
     environment:
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_TOKEN: "${PERSONAL_TOKEN}"
       GITHUB_REPO: "${CI_REPO}"
       DUPLICATE_THRESHOLD: "0.7"
       MAX_RESULTS: "20"
@@ -75,7 +75,7 @@ steps:
       - echo "Assigning unassigned issues..."
       - ./pipeline-utils/scripts/assign-unassigned-issues.sh 20
     environment:
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_TOKEN: "${PERSONAL_TOKEN}"
       GITHUB_REPO: "${CI_REPO}"
       DEFAULT_ASSIGNEE: ""
     when:
@@ -103,7 +103,7 @@ steps:
           echo "No new issues to estimate"
         fi
     environment:
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_TOKEN: "${PERSONAL_TOKEN}"
       GITHUB_REPO: "${CI_REPO}"
       LINES_WEIGHT: "0.3"
       FILES_WEIGHT: "0.2"
@@ -120,7 +120,7 @@ steps:
       - echo "Linking commits to issues..."
       - ./pipeline-utils/scripts/link-issues-to-commits.sh HEAD~100..HEAD
     environment:
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_TOKEN: "${PERSONAL_TOKEN}"
       GITHUB_REPO: "${CI_REPO}"
     when:
       event: cron
@@ -136,7 +136,7 @@ steps:
       - echo "Report generated:"
       - cat /tmp/issue-report.md
     environment:
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_TOKEN: "${PERSONAL_TOKEN}"
       GITHUB_REPO: "${CI_REPO}"
       REPORT_DAYS: "7"
       REPORT_FORMAT: "markdown"

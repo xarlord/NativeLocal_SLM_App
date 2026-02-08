@@ -86,11 +86,11 @@ steps:
 
       # Authenticate with GitHub (if token provided)
       - |
-        if [ -n "$${GITHUB_TOKEN:-}" ]; then
-          echo "$${GITHUB_TOKEN}" | gh auth login --with-token
+        if [ -n "$${PERSONAL_TOKEN:-}" ]; then
+          echo "$${PERSONAL_TOKEN}" | gh auth login --with-token
           echo "Authenticated with GitHub"
         else
-          echo "WARNING: GITHUB_TOKEN not set. Skipping PR warnings."
+          echo "WARNING: PERSONAL_TOKEN not set. Skipping PR warnings."
           exit 0
         fi
 
@@ -105,7 +105,7 @@ steps:
       - echo ""
       - echo "Stale PR warnings complete"
     secrets:
-      - github_token
+      - personal_token
     when:
       - event: cron
       - branch:
