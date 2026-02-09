@@ -1,0 +1,45 @@
+name: Automated Repository Cleanup
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    if: github.repository == 'plner1/NativeLocal_SLM_App'
+    permissions:
+      issues: write
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup gh CLI
+        uses: gh actions/setup@v2
+
+      - name: Authenticate with GitHub
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" > gh_token.txt
+          gh auth login --with-token < gh_token.txt
+          rm gh_token.txt
+
+      - name: Run cleanup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLEAN_BRANCHES: true
+          CLEAN_ISSUES: true
+          CLEAN_ARTIFACTS: false
+          DRY_RUN: false
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          bash pipeline-utils/scripts/auto-cleanup.sh
+
+      - name: Report results
+        if: always()
+        run: |
+          echo "## Cleanup Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Branches: $(git branch | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- Issues: $(gh issue list --state open --json number | jq '. | length')" >> $GITHUB_STEP_SUMMARY

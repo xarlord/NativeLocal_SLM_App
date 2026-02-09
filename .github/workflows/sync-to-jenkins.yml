@@ -1,0 +1,29 @@
+name: Sync to Jenkins
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  trigger-jenkins:
+    runs-on: ubuntu-latest
+    if: github.repository == 'plner1/NativeLocal_SLM_App'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger Jenkins build
+        run: |
+          # Trigger Jenkins via webhook
+          curl -X POST "${{ secrets.JENKINS_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "repository": "${{ github.repository }}",
+              "branch": "${{ github.ref_name }}",
+              "commit": "${{ github.sha }}",
+              "author": "${{ github.actor }}",
+              "event": "${{ github.event_name }}"
+            }' || echo "Jenkins webhook failed (may need configuration)"

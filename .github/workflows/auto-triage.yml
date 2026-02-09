@@ -1,0 +1,36 @@
+name: Automated Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    if: github.repository == 'plner1/NativeLocal_SLM_App'
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup gh CLI
+        uses: gh actions/setup@v2
+
+      - name: Authenticate with GitHub
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" > gh_token.txt
+          gh auth login --with-token < gh_token.txt
+          rm gh_token.txt
+
+      - name: Run issue triage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: false
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          bash pipeline-utils/scripts/auto-triage-issues.sh
