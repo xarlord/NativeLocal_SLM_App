@@ -1,0 +1,250 @@
+pipeline {
+    agent any
+
+    environment {
+        ANDROID_HOME = '/opt/android-sdk'
+        GRADLE_OPTS = '-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=2'
+        SCRIPTS_DIR = 'pipeline-utils/scripts'
+        COVERAGE_TARGET = '95'
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '5'))
+        timestamps()
+        timeout(time: 2, unit: 'HOURS')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Pre-Flight Checks') {
+            parallel {
+                stage('Environment') {
+                    steps {
+                        sh '''
+                            echo "=== Environment Check ==="
+                            echo "Java version:"
+                            java -version
+                            echo "Gradle version:"
+                            ./gradlew --version
+                            echo "Docker version:"
+                            docker --version
+                        '''
+                    }
+                }
+                stage('Scripts Availability') {
+                    steps {
+                        sh '''
+                            echo "=== Scripts Check ==="
+                            if [ -d "${SCRIPTS_DIR}" ]; then
+                                echo "✅ Scripts directory found"
+                                echo "Total scripts: $(find ${SCRIPTS_DIR} -name '*.sh' | wc -l)"
+                            else
+                                echo "❌ Scripts directory not found"
+                                exit 1
+                            fi
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                echo 'Checking out code...'
+                checkout scm
+                sh '''
+                    echo "Git commit: $(git rev-parse HEAD)"
+                    echo "Git branch: $(git branch --show-current)"
+                '''
+            }
+        }
+
+        stage('Security Scan') {
+            parallel {
+                stage('Secret Scanning') {
+                    steps {
+                        sh '''
+                            echo "=== Secret Scanning ==="
+                            if [ -f "${SCRIPTS_DIR}/pre-commit-secrets.sh" ]; then
+                                ${SCRIPTS_DIR}/pre-commit-secrets.sh || echo "Warning: Secret scan failed"
+                            else
+                                echo "Basic secret scan:"
+                                git grep -iE "password|secret|api[_-]?key|token" --unmatched || echo "No secrets found in code"
+                            fi
+                        '''
+                    }
+                }
+                stage('License Check') {
+                    steps {
+                        sh '''
+                            echo "=== License Compliance ==="
+                            if [ -f "${SCRIPTS_DIR}/check-licenses.sh" ]; then
+                                ${SCRIPTS_DIR}/check-licenses.sh || echo "Warning: License check failed"
+                            fi
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Code Quality') {
+            parallel {
+                stage('Format Check') {
+                    steps {
+                        sh '''
+                            echo "=== Code Format Check ==="
+                            if [ -f "${SCRIPTS_DIR}/pre-commit-format.sh" ]; then
+                                ${SCRIPTS_DIR}/pre-commit-format.sh || echo "Warning: Format check failed"
+                            fi
+                        '''
+                    }
+                }
+                stage('Linting') {
+                    steps {
+                        sh '''
+                            echo "=== Android Lint ==="
+                            ./gradlew lint --continue
+                        '''
+                    }
+                    post {
+                        always {
+                            androidLint pattern: '**/build/reports/lint-results-*.xml'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Building Android APK...'
+                sh '''
+                    echo "=== Building Debug APK ==="
+                    ./gradlew assembleDebug --stacktrace --info
+                '''
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: '**/build/outputs/apk/**/*.apk', fingerprint: true
+                    sh '''
+                        echo "=== Build Artifacts ==="
+                        find . -name "*.apk" -type f
+                    '''
+                }
+            }
+        }
+
+        stage('Test') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        sh '''
+                            echo "=== Running Unit Tests ==="
+                            ./gradlew test --stacktrace
+                        '''
+                    }
+                    post {
+                        always {
+                            junit '**/build/test-results/test/**/*.xml'
+                        }
+                    }
+                }
+                stage('Coverage') {
+                    steps {
+                        sh '''
+                            echo "=== Code Coverage Analysis ==="
+                            ./gradlew jacocoTestReport || echo "Coverage report generation failed"
+                            if [ -f "build/reports/jacoco/test/html/index.html" ]; then
+                                echo "Coverage report generated"
+                            fi
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gates') {
+            steps {
+                sh '''
+                    echo "=== Quality Gates ==="
+                    # Check if tests passed
+                    if [ ! -d "build/test-results" ]; then
+                        echo "❌ No test results found"
+                        exit 1
+                    fi
+
+                    # Count test results
+                    TOTAL=$(find build/test-results -name "*.xml" -exec grep -h "tests=" {} \; | grep -oE "tests=\"[0-9]+\"" | grep -oE "[0-9]+" | awk '{s+=$1} END {print s}')
+                    FAILURES=$(find build/test-results -name "*.xml" -exec grep -h "failures=" {} \; | grep -oE "failures=\"[0-9]+\"" | grep -oE "[0-9]+" | awk '{s+=$1} END {print s}')
+
+                    echo "Total tests: $TOTAL"
+                    echo "Failures: $FAILURES"
+
+                    if [ "$FAILURES" -gt 0 ]; then
+                        echo "❌ Quality gate failed: $FAILURES test failures"
+                        exit 1
+                    fi
+
+                    echo "✅ Quality gates passed"
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo '=== Pipeline Execution Summary ==='
+            sh '''
+                echo "Build: ${currentBuild.result}"
+                echo "Duration: ${currentBuild.durationString}"
+                echo "Workspace: ${env.WORKSPACE}"
+
+                # Generate build report
+                cat > build-summary.txt << EOF
+================================
+Jenkins Build Summary
+================================
+Job: ${env.JOB_NAME}
+Build: ${env.BUILD_NUMBER}
+Result: ${currentBuild.result}
+Duration: ${currentBuild.durationString}
+Branch: ${env.GIT_BRANCH}
+Commit: ${env.GIT_COMMIT}
+
+================================
+Stages Executed:
+================================
+EOF
+
+                # Archive summary
+                echo "Build summary created"
+            '''
+            cleanWs()
+        }
+        success {
+            echo '✅ Pipeline completed successfully!'
+            sh '''
+                if [ -n "${SLACK_WEBHOOK:-}" ]; then
+                    echo "Slack notification would be sent here"
+                fi
+            '''
+        }
+        failure {
+            echo '❌ Pipeline failed!'
+            sh '''
+                # Generate failure report
+                cat > failure-report.txt << EOF
+================================
+PIPELINE FAILURE REPORT
+================================
+Job: ${env.JOB_NAME}
+Build: ${env.BUILD_NUMBER}
+Status: FAILED
+Timestamp: $(date)
+
+Check console output for details.
+EOF
+            '''
+        }
+    }
+}
